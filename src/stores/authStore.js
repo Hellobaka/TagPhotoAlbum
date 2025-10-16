@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { photoApi } from '@/api/photoApi'
 
 export const useAuthStore = defineStore('auth', () => {
   // 状态
@@ -11,60 +12,33 @@ export const useAuthStore = defineStore('auth', () => {
   const currentUser = computed(() => user.value)
   const isLoggedIn = computed(() => isAuthenticated.value)
 
-  // 演示用户数据
-  const demoUsers = {
-    admin: {
-      username: 'admin',
-      password: '123456',
-      name: '管理员',
-      email: 'admin@example.com'
-    }
-  }
-
   // 方法
   const login = async (username, password) => {
     isLoading.value = true
 
     try {
-      // 模拟网络延迟
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
       console.log('AuthStore login attempt:', { username, password })
 
-      // 检查演示用户
-      const demoUser = demoUsers[username]
-      console.log('Found demo user:', demoUser)
+      // 调用真实 API 进行登录
+      const response = await photoApi.login({ username, password })
 
-      if (demoUser && demoUser.password === password) {
+      if (response && response.success) {
         console.log('Login successful')
-        user.value = demoUser
+        user.value = response.user
         isAuthenticated.value = true
 
         // 保存登录状态到 localStorage
-        localStorage.setItem('auth_token', 'demo_token')
-        localStorage.setItem('user', JSON.stringify(demoUser))
+        localStorage.setItem('auth_token', response.data.token)
+        localStorage.setItem('user', JSON.stringify(response.data.user))
 
-        return true
+        return [true, '登录成功']
       }
 
-      console.log('Login failed - user not found or password mismatch')
-      console.log('Expected:', { username: 'admin', password: '123456' })
-      console.log('Received:', { username, password })
-      console.log('Comparison:', {
-        usernameMatch: username === 'admin',
-        passwordMatch: password === '123456'
-      })
-
-      // 临时解决方案：总是返回成功
-      console.log('Using temporary solution: always return true')
-      user.value = demoUsers['admin']
-      isAuthenticated.value = true
-      localStorage.setItem('auth_token', 'demo_token')
-      localStorage.setItem('user', JSON.stringify(demoUsers['admin']))
-      return true
+      console.log('Login failed - invalid credentials')
+      return [false, '用户名或密码错误']
     } catch (error) {
       console.error('Login error:', error)
-      return false
+      return [false, '服务端异常']
     } finally {
       isLoading.value = false
     }
@@ -83,7 +57,7 @@ export const useAuthStore = defineStore('auth', () => {
     const token = localStorage.getItem('auth_token')
     const userData = localStorage.getItem('user')
 
-    if (token && userData) {
+    if (token && userData && userData !== 'undefined') {
       try {
         user.value = JSON.parse(userData)
         isAuthenticated.value = true

@@ -11,7 +11,8 @@
       <!-- 登录表单 -->
       <form @submit.prevent="handleLogin" class="login-form">
         <md-filled-text-field
-          v-model="username"
+          :value="username"
+          @input="e => username = e.target.value"
           label="用户名"
           type="text"
           required
@@ -21,7 +22,9 @@
         </md-filled-text-field>
 
         <md-filled-text-field
-          v-model="password"
+          :value="password"
+          @input="e => password = e.target.value"
+          @keyup.enter="handleLogin"
           label="密码"
           type="password"
           required
@@ -40,15 +43,6 @@
       <div v-if="error" class="error-message">
         <span class="material-symbols-outlined error-icon">error</span>
         <span>{{ error }}</span>
-      </div>
-
-      <!-- 演示信息 -->
-      <div class="demo-info">
-        <p class="md-typescale-body-small">
-          <strong>演示账号：</strong><br>
-          用户名：admin<br>
-          密码：123456
-        </p>
       </div>
     </div>
   </div>
@@ -78,10 +72,10 @@ const handleLogin = async () => {
   try {
     const success = await authStore.login(username.value, password.value)
     console.log('Login result:', success)
-    if (success) {
+    if (success[0]) {
       router.push('/')
     } else {
-      error.value = '用户名或密码错误'
+      error.value = success[1] || '登录失败，请检查用户名和密码'
     }
   } catch (err) {
     console.error('Login error:', err)
