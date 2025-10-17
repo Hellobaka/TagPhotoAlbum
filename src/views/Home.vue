@@ -68,9 +68,24 @@
           </div>
         </div>
 
+        <!-- 未分类页面分类按钮 -->
+        <div v-if="activeTab === 'uncategorized' && filteredPhotos.length > 0" class="categorize-section">
+          <div class="categorize-container">
+            <md-filled-button
+              @click="startCategorization"
+              class="categorize-button"
+            >
+              <span class="material-symbols-outlined categorize-icon">category</span>
+              继续分类
+            </md-filled-button>
+          </div>
+        </div>
+
         <!-- 瀑布流图片展示 -->
         <PhotoGrid
           :photos="filteredPhotos"
+          :is-loading="isLoading"
+          :loading-type="loadingType"
           @open-photo-detail="openPhotoDetail"
         />
       </div>
@@ -81,6 +96,15 @@
       :selected-photo="selectedPhoto"
       @close-photo-detail="closePhotoDetail"
       @save-photo-info="savePhotoInfo"
+    />
+
+    <!-- 分类对话框 -->
+    <CategorizeDialog
+      :is-open="isCategorizing"
+      :uncategorized-photos="photoStore.uncategorizedPhotos"
+      @close="stopCategorization"
+      @save-and-next="handleSaveAndNext"
+      @next="handleNext"
     />
   </div>
 </template>
@@ -94,6 +118,7 @@ import Sidebar from '@/components/Sidebar.vue'
 import FilterStatus from '@/components/FilterStatus.vue'
 import PhotoGrid from '@/components/PhotoGrid.vue'
 import PhotoDialog from '@/components/PhotoDialog.vue'
+import CategorizeDialog from '@/components/CategorizeDialog.vue'
 
 // 响应式数据
 const isCollapsed = ref(false)
@@ -105,13 +130,15 @@ const selectedTags = ref([])
 const selectedFolder = ref(null)
 const selectedLocation = ref(null)
 const searchQuery = ref('')
+const isCategorizing = ref(false)
 
 // 标签页配置
 const tabs = [
   { id: 'tags', label: '标签', icon: 'local_offer' },
   { id: 'folders', label: '文件夹', icon: 'folder' },
   { id: 'locations', label: '地点', icon: 'location_on' },
-  { id: 'recommend', label: '推荐', icon: 'recommend' }
+  { id: 'recommend', label: '推荐', icon: 'recommend' },
+  { id: 'uncategorized', label: '未分类', icon: 'folder_open' }
 ]
 
 // 使用 Pinia store
@@ -123,10 +150,31 @@ const getActiveTabLabel = computed(() => {
   return tab ? tab.label : ''
 })
 
+// 计算加载状态
+const isLoading = computed(() => {
+  if (activeTab.value === 'recommend') {
+    return photoStore.getLoadingState('recommend')
+  }
+  return photoStore.getLoadingState('photos')
+})
+
+// 计算加载类型
+const loadingType = computed(() => {
+  if (activeTab.value === 'recommend') {
+    return 'recommend'
+  }
+  return 'photos'
+})
+
 const filteredPhotos = computed(() => {
   // 如果是推荐标签页，直接返回推荐照片，不应用筛选
   if (activeTab.value === 'recommend') {
     return photoStore.recommendPhotos
+  }
+
+  // 如果是未分类标签页，返回未分类的照片
+  if (activeTab.value === 'uncategorized') {
+    return photoStore.uncategorizedPhotos
   }
 
   // 根据筛选条件筛选图片
@@ -241,9 +289,36 @@ const savePhotoInfo = () => {
   closePhotoDetail()
 }
 
+// 分类相关方法
+const startCategorization = () => {
+  isCategorizing.value = true
+}
+
+const stopCategorization = () => {
+  isCategorizing.value = false
+}
+
+const handleSaveAndNext = async (photoData) => {
+  try {
+    await photoStore.updatePhoto(photoData)
+    // 自动进入下一张
+  } catch (error) {
+    console.error('保存图片信息失败:', error)
+  }
+}
+
+const handleNext = () => {
+  // 直接进入下一张，不保存当前图片
+}
+
 onMounted(async () => {
   // 初始化数据
   try {
+    // 如果是推荐页面，先设置加载状态
+    if (activeTab.value === 'recommend') {
+      photoStore.setLoadingState('recommend', true)
+    }
+
     await photoStore.initializeData()
 
     // 如果当前是推荐页面，加载推荐照片
@@ -399,6 +474,43 @@ onMounted(async () => {
 }
 
 .refresh-icon {
+  font-size: 18px;
+}
+
+/* 未分类页面分类按钮样式 */
+.categorize-section {
+  margin-top: 24px;
+  margin-left: 24px;
+  position: sticky;
+  top: var(--header-height);
+  z-index: 9;
+  background: var(--md-sys-color-surface);
+  padding: 16px 0;
+}
+
+.categorize-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.categorize-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 20px;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.categorize-button:hover {
+  background: var(--md-sys-color-primary-hover);
+}
+
+.categorize-icon {
   font-size: 18px;
 }
 

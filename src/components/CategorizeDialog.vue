@@ -1,31 +1,39 @@
 <template>
   <Transition name="dialog-fade">
-    <div v-if="selectedPhoto" class="dialog-overlay" @click="closePhotoDetail">
+    <div v-if="isOpen" class="dialog-overlay" @click="closeDialog">
       <Transition name="dialog-scale">
         <div class="dialog-container" @click.stop>
           <div class="dialog-header">
-            <h2 class="md-typescale-headline-small">图片详情</h2>
-            <md-icon-button @click="closePhotoDetail" class="close-btn">
+            <h2 class="md-typescale-headline-small">
+              分类进度 ({{ currentIndex + 1 }}/{{ uncategorizedPhotos.length }})
+            </h2>
+            <md-icon-button @click="closeDialog" class="close-btn">
               <span class="material-symbols-outlined">close</span>
             </md-icon-button>
           </div>
 
           <div class="dialog-content">
             <div class="photo-container">
-              <img :src="selectedPhoto.url" :alt="selectedPhoto.title" />
+              <img
+                v-if="currentPhoto"
+                :src="currentPhoto.url"
+                :alt="currentPhoto.title"
+              />
+              <div v-else class="no-photo">
+                <span class="material-symbols-outlined">photo</span>
+                <p>没有更多未分类图片</p>
+              </div>
             </div>
 
             <div class="info-section">
               <md-outlined-text-field
-                :value="editablePhoto.title"
-                @input="e => editablePhoto.title = e.target.value"
+                v-model="editablePhoto.title"
                 label="标题"
                 class="info-field"
               />
 
               <md-outlined-text-field
-                :value="editablePhoto.description"
-                @input="e => editablePhoto.description = e.target.value"
+                v-model="editablePhoto.description"
                 label="描述"
                 type="textarea"
                 rows="3"
@@ -44,8 +52,7 @@
                   />
                   <div class="add-tag">
                     <md-outlined-text-field
-                      :value="newTag"
-                      @input="e => newTag = e.target.value"
+                      v-model="newTag"
                       label="添加标签"
                       @keyup.enter="addTag"
                     >
@@ -61,18 +68,22 @@
               </div>
 
               <div class="info-grid">
-                  <md-outlined-select :value="editablePhoto.folder" @change="e => editablePhoto.folder = e.target.value" label="文件夹" class="info-field">
-                    <md-select-option
-                      v-for="option in photoStore.allFolders"
-                      :key="option.value"
-                      :value="option.value"
-                    >
-                      <div slot="headline">{{ option }}</div>
-                    </md-select-option>
-                  </md-outlined-select>
-                  <md-outlined-text-field
-                  :value="editablePhoto.location"
-                  @input="e => editablePhoto.location = e.target.value"
+                <md-outlined-select
+                  v-model="editablePhoto.folder"
+                  label="文件夹"
+                  class="info-field"
+                >
+                  <md-select-option
+                    v-for="folder in photoStore.allFolders"
+                    :key="folder"
+                    :value="folder"
+                  >
+                    <div slot="headline">{{ folder }}</div>
+                  </md-select-option>
+                </md-outlined-select>
+
+                <md-outlined-text-field
+                  v-model="editablePhoto.location"
                   label="地点"
                   class="info-field"
                 />
@@ -81,11 +92,12 @@
           </div>
 
           <div class="dialog-actions">
-            <md-text-button @click="closePhotoDetail" style="padding-left: 15px; padding-right: 15px;" :disabled="isSaving">取消</md-text-button>
-            <md-text-button @click="savePhotoInfo" style="padding-left: 15px; padding-right: 15px;" :disabled="isSaving">
+            <md-text-button @click="closeDialog" :disabled="isSaving">关闭</md-text-button>
+            <md-text-button @click="handleNext" :disabled="isSaving">下一张</md-text-button>
+            <md-filled-button @click="handleSaveAndNext" :disabled="isSaving">
               <span v-if="isSaving" class="loading-spinner"></span>
-              {{ isSaving ? '保存中...' : '保存' }}
-            </md-text-button>
+              {{ isSaving ? '保存中...' : '保存并下一张' }}
+            </md-filled-button>
           </div>
         </div>
       </Transition>
@@ -94,19 +106,24 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 
 const props = defineProps({
-  selectedPhoto: {
-    type: Object,
-    default: null
+  isOpen: {
+    type: Boolean,
+    default: false
+  },
+  uncategorizedPhotos: {
+    type: Array,
+    default: () => []
   }
 })
 
-const emit = defineEmits(['close-photo-detail', 'save-photo-info'])
+const emit = defineEmits(['close', 'save-and-next', 'next'])
 
 // 响应式数据
+const currentIndex = ref(0)
 const editablePhoto = ref({})
 const newTag = ref('')
 const isSaving = ref(false)
@@ -114,8 +131,13 @@ const isSaving = ref(false)
 // 使用 Pinia store
 const photoStore = usePhotoStore()
 
-// 监听选中的照片变化
-watch(() => props.selectedPhoto, (newPhoto) => {
+// 计算当前显示的图片
+const currentPhoto = computed(() => {
+  return props.uncategorizedPhotos[currentIndex.value] || null
+})
+
+// 监听当前图片变化
+watch(currentPhoto, (newPhoto) => {
   if (newPhoto) {
     editablePhoto.value = { ...newPhoto }
     newTag.value = ''
@@ -125,9 +147,17 @@ watch(() => props.selectedPhoto, (newPhoto) => {
   }
 }, { immediate: true })
 
+// 监听对话框打开状态
+watch(() => props.isOpen, (newValue) => {
+  if (newValue) {
+    // 对话框打开时重置到第一张图片
+    currentIndex.value = 0
+  }
+})
+
 // 方法
-const closePhotoDetail = () => {
-  emit('close-photo-detail')
+const closeDialog = () => {
+  emit('close')
 }
 
 const addTag = () => {
@@ -141,19 +171,32 @@ const removeTag = (tag) => {
   editablePhoto.value.tags = editablePhoto.value.tags.filter(t => t !== tag)
 }
 
-const savePhotoInfo = async () => {
+const handleSaveAndNext = async () => {
   if (isSaving.value) return
 
   try {
     isSaving.value = true
-    await photoStore.updatePhoto(editablePhoto.value)
-    emit('save-photo-info', editablePhoto.value)
+    await emit('save-and-next', editablePhoto.value)
+    await nextTick()
+    goToNext()
   } catch (error) {
     console.error('保存图片信息失败:', error)
-    // 这里可以添加错误提示，比如使用 toast 通知用户
-    alert('保存失败，请稍后重试')
   } finally {
     isSaving.value = false
+  }
+}
+
+const handleNext = () => {
+  emit('next')
+  goToNext()
+}
+
+const goToNext = () => {
+  if (currentIndex.value < props.uncategorizedPhotos.length - 1) {
+    currentIndex.value++
+  } else {
+    // 已经是最后一张，关闭对话框
+    closeDialog()
   }
 }
 
@@ -249,6 +292,18 @@ const getTagColorClass = (tag) => {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.no-photo {
+  text-align: center;
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 40px;
+}
+
+.no-photo .material-symbols-outlined {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
 }
 
 .info-section {
@@ -365,6 +420,11 @@ const getTagColorClass = (tag) => {
 
   .info-grid {
     grid-template-columns: 1fr;
+  }
+
+  .dialog-actions {
+    flex-direction: column;
+    gap: 12px;
   }
 }
 

@@ -37,6 +37,16 @@ api.interceptors.response.use(
   (error) => {
     console.error('API请求错误:', error.response?.data || error.message)
 
+    // 获取错误消息
+    let errorMessage = '网络请求失败'
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message
+    } else if (error.response?.data?.error) {
+      errorMessage = error.response.data.error
+    } else if (error.message) {
+      errorMessage = error.message
+    }
+
     // 处理认证错误
     if (error.response?.status === 401) {
       // 清除本地存储的认证信息
@@ -49,9 +59,17 @@ api.interceptors.response.use(
       } else {
         return Promise.resolve({ success: false })
       }
+    } else {
+      // 显示错误消息到SnackBar
+      // 注意：这里不能直接导入store，需要在组件中处理
+      // 错误会通过Promise.reject传递到调用处
     }
 
-    return Promise.reject(error.response?.data || error)
+    return Promise.reject({
+      message: errorMessage,
+      status: error.response?.status,
+      data: error.response?.data
+    })
   }
 )
 
@@ -109,7 +127,22 @@ export const photoApi = {
   // 获取推荐照片
   getRecommendPhotos() {
     return api.get('/photos/recommend')
+  },
+
+  // 上传图片
+  uploadPhotos(formData) {
+    return api.post('/photos/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
+  // 获取未分类照片
+  getUncategorizedPhotos() {
+    return api.get('/photos/uncategorized')
   }
+
 }
 
 export default photoApi

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { photoApi } from '@/api/photoApi'
+import { useNotificationStore } from './notificationStore'
 
 export const useAuthStore = defineStore('auth', () => {
   // 状态
@@ -38,7 +39,12 @@ export const useAuthStore = defineStore('auth', () => {
       return [false, '用户名或密码错误']
     } catch (error) {
       console.error('Login error:', error)
-      return [false, '服务端异常']
+
+      // 显示错误到SnackBar
+      const notificationStore = useNotificationStore()
+      notificationStore.showError(error.message || '登录失败，请稍后重试')
+
+      return [false, error.message || '服务端异常']
     } finally {
       isLoading.value = false
     }

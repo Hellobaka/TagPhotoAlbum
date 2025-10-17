@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { photoApi } from '@/api/photoApi'
+import { useNotificationStore } from './notificationStore'
 
 export const usePhotoStore = defineStore('photos', {
   state: () => ({
@@ -11,7 +12,16 @@ export const usePhotoStore = defineStore('photos', {
     activeTab: 'tags',
     isLoading: false,
     error: null,
-    recommendPhotos: []
+    recommendPhotos: [],
+    // 新增加载状态
+    loadingStates: {
+      photos: false,
+      tags: false,
+      folders: false,
+      locations: false,
+      search: false,
+      recommend: false
+    }
   }),
 
   getters: {
@@ -48,6 +58,15 @@ export const usePhotoStore = defineStore('photos', {
       const locations = new Set()
       state.photos.forEach(photo => locations.add(photo.location))
       return Array.from(locations)
+    },
+
+    // 未分类照片
+    uncategorizedPhotos: (state) => {
+      return state.photos.filter(photo =>
+        !photo.tags || photo.tags.length === 0 ||
+        !photo.folder || !photo.location ||
+        !photo.title || photo.title === '未命名'
+      )
     }
   },
 
@@ -58,6 +77,18 @@ export const usePhotoStore = defineStore('photos', {
 
     setSelectedPhoto(photo) {
       this.selectedPhoto = photo
+    },
+
+    // 设置加载状态
+    setLoadingState(type, isLoading) {
+      if (this.loadingStates[type] !== undefined) {
+        this.loadingStates[type] = isLoading
+      }
+    },
+
+    // 获取加载状态
+    getLoadingState(type) {
+      return this.loadingStates[type] || false
     },
 
     async updatePhoto(updatedPhoto) {
@@ -79,6 +110,8 @@ export const usePhotoStore = defineStore('photos', {
         return response
       } catch (error) {
         this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '更新照片失败')
         throw error
       } finally {
         this.isLoading = false
@@ -120,43 +153,70 @@ export const usePhotoStore = defineStore('photos', {
         this.isLoading = true
         this.error = null
 
+        // 显示加载通知
+        const notificationStore = useNotificationStore()
+        notificationStore.showLoading('正在加载照片数据...')
+
+        // 设置各个部分的加载状态
+        this.setLoadingState('photos', true)
+        this.setLoadingState('tags', true)
+        this.setLoadingState('folders', true)
+        this.setLoadingState('locations', true)
+
         // 从 API 获取照片数据
         const photosResponse = await photoApi.getPhotos()
         this.photos = photosResponse.data || []
+        this.setLoadingState('photos', false)
 
         // 获取标签数据
         const tagsResponse = await photoApi.getTags()
         this.tags = tagsResponse.data || []
+        this.setLoadingState('tags', false)
 
         // 获取文件夹数据
         const foldersResponse = await photoApi.getFolders()
         this.folders = foldersResponse.data || []
+        this.setLoadingState('folders', false)
 
         // 获取地点数据
         const locationsResponse = await photoApi.getLocations()
         this.locations = locationsResponse.data || []
+        this.setLoadingState('locations', false)
+
+        // 隐藏加载通知
+        notificationStore.removeMessage(notificationStore.activeMessages.find(msg => msg.type === 'loading')?.id)
+        notificationStore.showSuccess('数据加载完成')
 
       } catch (error) {
         this.error = error.message
         console.error('Failed to initialize data:', error)
+        const notificationStore = useNotificationStore()
+        notificationStore.removeMessage(notificationStore.activeMessages.find(msg => msg.type === 'loading')?.id)
+        notificationStore.showError(error.message || '加载数据失败')
         throw error
       } finally {
         this.isLoading = false
+        // 重置所有加载状态
+        Object.keys(this.loadingStates).forEach(key => {
+          this.setLoadingState(key, false)
+        })
       }
     },
 
     // 搜索照片
     async searchPhotos(query) {
       try {
-        this.isLoading = true
+        this.setLoadingState('search', true)
         this.error = null
         const response = await photoApi.searchPhotos(query)
         return response.data || []
       } catch (error) {
         this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '搜索失败')
         throw error
       } finally {
-        this.isLoading = false
+        this.setLoadingState('search', false)
       }
     },
 
@@ -172,6 +232,9 @@ export const usePhotoStore = defineStore('photos', {
         return response
       } catch (error) {
         this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '发送创建请求失败')
+
         throw error
       } finally {
         this.isLoading = false
@@ -190,6 +253,9 @@ export const usePhotoStore = defineStore('photos', {
         return response
       } catch (error) {
         this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '发送删除请求失败')
+
         throw error
       } finally {
         this.isLoading = false
@@ -199,16 +265,36 @@ export const usePhotoStore = defineStore('photos', {
     // 获取推荐照片
     async getRecommendPhotos() {
       try {
-        this.isLoading = true
+        this.setLoadingState('recommend', true)
         this.error = null
         const response = await photoApi.getRecommendPhotos()
         this.recommendPhotos = response.data || []
         return this.recommendPhotos
       } catch (error) {
         this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '加载推荐照片失败')
+
         throw error
       } finally {
-        this.isLoading = false
+        this.setLoadingState('recommend', false)
+      }
+    },
+
+    // 上传图片
+    async uploadPhotos(formData) {
+      try {
+        this.setLoadingState('photos', true)
+        this.error = null
+        const response = await photoApi.uploadPhotos(formData)
+        return response
+      } catch (error) {
+        this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '上传图片失败')
+        throw error
+      } finally {
+        this.setLoadingState('photos', false)
       }
     }
   }

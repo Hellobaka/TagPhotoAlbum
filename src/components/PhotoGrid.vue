@@ -1,7 +1,15 @@
 <template>
   <div>
+    <!-- 加载状态 -->
+    <div v-if="isLoading" class="loading-state">
+      <div class="loading-content">
+        <md-circular-progress indeterminate></md-circular-progress>
+        <p class="md-typescale-body-medium loading-text">{{ loadingText }}</p>
+      </div>
+    </div>
+
     <!-- 瀑布流图片展示 -->
-    <div class="masonry-grid">
+    <div v-if="!isLoading" class="masonry-grid">
       <div
         v-for="photo in photos"
         :key="photo.id"
@@ -32,7 +40,7 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-if="photos.length === 0" class="empty-state">
+    <div v-if="!isLoading && photos.length === 0" class="empty-state">
       <span class="material-symbols-outlined empty-icon">photo</span>
       <h3 class="md-typescale-headline-small">没有找到照片</h3>
       <p class="md-typescale-body-medium">尝试调整筛选条件或搜索关键词</p>
@@ -41,14 +49,37 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+
 const props = defineProps({
   photos: {
     type: Array,
     default: () => []
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
+  },
+  loadingType: {
+    type: String,
+    default: 'photos'
   }
 })
 
 const emit = defineEmits(['open-photo-detail'])
+
+// 计算加载文本
+const loadingText = computed(() => {
+  const texts = {
+    photos: '正在加载照片...',
+    search: '正在搜索...',
+    recommend: '正在加载推荐...',
+    tags: '正在加载标签...',
+    folders: '正在加载文件夹...',
+    locations: '正在加载地点...'
+  }
+  return texts[props.loadingType] || '正在加载...'
+})
 
 // 方法
 const openPhotoDetail = (photo) => {
@@ -84,6 +115,27 @@ const getTagColorClass = (tag) => {
 </script>
 
 <style scoped>
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  padding: 80px 24px;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-text {
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: center;
+}
+
 /* 瀑布流样式 */
 .masonry-grid {
   padding: 24px;

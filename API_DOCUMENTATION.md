@@ -264,6 +264,59 @@
 }
 ```
 
+### 上传图片
+
+**POST** `/photos/upload`
+
+请求头：
+- `Content-Type: multipart/form-data`
+
+请求体：
+- `files` (必需): 图片文件数组
+
+响应：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "number",
+      "url": "string",
+      "title": "string",
+      "description": "string",
+      "tags": ["string"],
+      "folder": "string",
+      "location": "string",
+      "date": "string"
+    }
+  ],
+  "message": "成功上传 5 张图片"
+}
+```
+
+### 获取未分类照片
+
+**GET** `/photos/uncategorized`
+
+响应：
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "number",
+      "url": "string",
+      "title": "string",
+      "description": "string",
+      "tags": ["string"],
+      "folder": "string",
+      "location": "string",
+      "date": "string"
+    }
+  ]
+}
+```
+
 ## 错误处理
 
 所有 API 接口使用统一的错误响应格式：
@@ -309,6 +362,8 @@
    - `getLocations()`: 获取所有地点
    - `searchPhotos(query)`: 搜索照片
    - `getRecommendPhotos()`: 获取推荐照片
+   - `uploadPhotos(formData)`: 上传图片（支持多文件）
+   - `getUncategorizedPhotos()`: 获取未分类照片
 
 ### 状态管理
 
@@ -324,16 +379,20 @@
    - 标签、文件夹、地点元数据
    - 筛选和搜索功能
    - 推荐照片功能
+   - 未分类照片管理
+   - 图片上传功能
    - 加载状态和错误处理
 
 ### 主要组件
 
-- **Home.vue**: 主界面，包含照片展示、筛选和推荐功能
+- **Home.vue**: 主界面，包含照片展示、筛选、推荐和未分类功能
 - **Login.vue**: 登录界面
-- **Sidebar.vue**: 侧边栏导航，包含标签、文件夹、地点和推荐页面
+- **Sidebar.vue**: 侧边栏导航，包含标签、文件夹、地点、推荐和未分类页面
 - **FilterStatus.vue**: 筛选状态显示组件
 - **PhotoGrid.vue**: 瀑布流照片展示组件
 - **PhotoDialog.vue**: 照片详情对话框组件
+- **CategorizeDialog.vue**: 分类对话框组件，支持批量分类操作
+- **UploadZone.vue**: 拖拽上传组件，支持单张、多张和文件夹上传
 - 使用 Material Web Components 构建 UI
 
 ## 开发说明
@@ -371,9 +430,31 @@
 VITE_API_BASE_URL=http://your-api-server.com/api
 ```
 
+## 新功能说明
+
+### 图片上传功能
+
+- **支持方式**: 拖拽上传、文件选择器
+- **支持格式**: 单张图片、多张图片、整个文件夹
+- **文件类型**: JPG、JPEG、PNG、GIF、BMP、WebP、SVG
+- **进度显示**: 实时上传进度条
+- **结果反馈**: 成功/失败状态通知
+
+### 未分类照片管理
+
+- **自动识别**: 根据标签、文件夹、地点、标题自动识别未分类照片
+- **批量分类**: 通过分类对话框进行批量分类操作
+- **进度跟踪**: 显示分类进度 (当前/总数)
+- **操作按钮**:
+  - 保存并下一张: 保存当前分类并自动进入下一张
+  - 下一张: 跳过当前图片，不保存分类
+  - 关闭: 退出分类流程
+
 ## 注意事项
 
 1. 所有 API 请求都需要在请求头中包含认证 Token
 2. 照片上传功能需要额外的文件上传接口
 3. 分页和筛选参数支持灵活的查询需求
 4. 错误处理机制确保应用稳定性
+5. 拖拽上传功能需要浏览器支持 File API 和 Directory API
+6. 分类对话框支持批量操作，提高分类效率
