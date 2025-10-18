@@ -1,6 +1,7 @@
 import axios from 'axios'
+import API_CONFIG from '@/config/api'
 
-const API_BASE_URL = 'http://localhost:5085/api'
+const API_BASE_URL = `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}`
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -84,6 +85,30 @@ export const photoApi = {
     return api.get('/photos', { params })
   },
 
+  // 分页获取照片列表
+  getPhotosPaginated(page = 1, limit = 20, filters = {}) {
+    const params = {
+      page,
+      limit
+    }
+
+    // 添加筛选参数
+    if (filters.tags && filters.tags.length > 0) {
+      params.tags = filters.tags.join(',')
+    }
+    if (filters.folder) {
+      params.folder = filters.folder
+    }
+    if (filters.location) {
+      params.location = filters.location
+    }
+    if (filters.searchQuery) {
+      params.q = filters.searchQuery
+    }
+
+    return api.get('/photos', { params })
+  },
+
   // 获取单个照片
   getPhoto(id) {
     return api.get(`/photos/${id}`)
@@ -141,7 +166,7 @@ export const photoApi = {
   // 获取未分类照片
   getUncategorizedPhotos() {
     return api.get('/photos/uncategorized')
-  }
+  },
 
 }
 

@@ -1,12 +1,20 @@
 <template>
   <div
     class="upload-zone"
-    :class="{ 'drag-over': isDragOver, 'uploading': isUploading }"
+    :class="{ 'drag-over': isDragOver, 'uploading': isUploading, 'success': isSuccess }"
     @drop="handleDrop"
     @dragover.prevent="handleDragOver"
     @dragleave="handleDragLeave"
     @click="triggerFileInput"
   >
+    <!-- 关闭按钮 - 成功状态下不显示 -->
+    <md-icon-button
+      v-if="!isSuccess"
+      class="close-button"
+      @click.stop="$emit('close')"
+    >
+      <md-icon>close</md-icon>
+    </md-icon-button>
     <input
       ref="fileInput"
       type="file"
@@ -18,15 +26,15 @@
 
     <div class="upload-content">
       <span class="material-symbols-outlined upload-icon">
-        {{ isUploading ? 'upload' : 'cloud_upload' }}
+        {{ isSuccess ? 'check_circle' : isUploading ? 'upload' : 'cloud_upload' }}
       </span>
 
       <div class="upload-text">
         <h3 class="md-typescale-title-large">
-          {{ isUploading ? '上传中...' : '拖拽图片到这里' }}
+          {{ isSuccess ? '上传成功！' : isUploading ? '上传中...' : '拖拽图片到这里' }}
         </h3>
         <p class="md-typescale-body-medium">
-          {{ isUploading ? `正在上传 ${uploadProgress}%` : '支持单张、多张图片或整个文件夹' }}
+          {{ isSuccess ? `已成功上传 ${filesCount} 张图片，3秒后自动关闭` : isUploading ? `正在上传 ${uploadProgress}%` : '支持单张、多张图片或整个文件夹' }}
         </p>
       </div>
 
@@ -39,19 +47,19 @@
       </div>
 
       <md-filled-button
-        v-if="!isUploading"
+        v-if="!isUploading && !isSuccess"
         @click.stop="triggerFileInput"
         class="upload-button"
       >
-        <span class="material-symbols-outlined">add_photo_alternate</span>
+        <md-icon slot="icon">add_photo_alternate</md-icon>
         选择图片
       </md-filled-button>
     </div>
 
-    <!-- 上传状态通知 -->
-    <div v-if="uploadResult" class="upload-result" :class="uploadResult.type">
+    <!-- 上传状态通知 - 仅错误时显示 -->
+    <div v-if="uploadResult && uploadResult.type === 'error'" class="upload-result" :class="uploadResult.type">
       <span class="material-symbols-outlined">
-        {{ uploadResult.type === 'success' ? 'check_circle' : 'error' }}
+        error
       </span>
       <span>{{ uploadResult.message }}</span>
     </div>
@@ -63,12 +71,17 @@ import { ref } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 
+// 定义事件
+const emit = defineEmits(['close', 'upload-complete'])
+
 // 响应式数据
 const isDragOver = ref(false)
 const isUploading = ref(false)
 const uploadProgress = ref(0)
 const uploadResult = ref(null)
 const fileInput = ref(null)
+const isSuccess = ref(false)
+const filesCount = ref(0)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -76,22 +89,34 @@ const notificationStore = useNotificationStore()
 
 // 方法
 const triggerFileInput = () => {
-  fileInput.value?.click()
+  // 成功状态下不触发文件选择
+  if (!isSuccess.value) {
+    fileInput.value?.click()
+  }
 }
 
 const handleDragOver = (event) => {
   event.preventDefault()
-  isDragOver.value = true
+  // 成功状态下不响应拖拽
+  if (!isSuccess.value) {
+    isDragOver.value = true
+  }
 }
 
 const handleDragLeave = (event) => {
   event.preventDefault()
-  isDragOver.value = false
+  // 成功状态下不响应拖拽离开
+  if (!isSuccess.value) {
+    isDragOver.value = false
+  }
 }
 
 const handleDrop = async (event) => {
   event.preventDefault()
   isDragOver.value = false
+
+  // 成功状态下不响应拖拽
+  if (isSuccess.value) return
 
   const items = event.dataTransfer.items
   const files = []
@@ -115,15 +140,24 @@ const handleDrop = async (event) => {
 
   if (files.length > 0) {
     await uploadFiles(files)
+  } else {
+    // 如果没有有效的图片文件，关闭上传区域
+    emit('close')
   }
 }
 
 const handleFileSelect = async (event) => {
+  // 成功状态下不响应文件选择
+  if (isSuccess.value) return
+
   const files = Array.from(event.target.files)
   const imageFiles = files.filter(file => isImageFile(file))
 
   if (imageFiles.length > 0) {
     await uploadFiles(imageFiles)
+  } else {
+    // 如果没有有效的图片文件，关闭上传区域
+    emit('close')
   }
 
   // 重置文件输入
@@ -183,8 +217,10 @@ const uploadFiles = async (files) => {
   if (files.length === 0) return
 
   isUploading.value = true
+  isSuccess.value = false
   uploadProgress.value = 0
   uploadResult.value = null
+  filesCount.value = files.length
 
   try {
     const formData = new FormData()
@@ -207,16 +243,16 @@ const uploadFiles = async (files) => {
     clearInterval(progressInterval)
     uploadProgress.value = 100
 
-    // 显示成功消息
-    uploadResult.value = {
-      type: 'success',
-      message: `成功上传 ${files.length} 张图片`
-    }
-
-    notificationStore.showSuccess(`成功上传 ${files.length} 张图片`)
+    // 显示成功状态
+    isSuccess.value = true
 
     // 刷新照片数据
-    await photoStore.initializeData()
+    await photoStore.loadFirstPage()
+
+    // 3秒后自动关闭
+    setTimeout(() => {
+      emit('upload-complete')
+    }, 3000)
 
   } catch (error) {
     console.error('上传失败:', error)
@@ -224,15 +260,16 @@ const uploadFiles = async (files) => {
       type: 'error',
       message: error.message || '上传失败，请重试'
     }
-    notificationStore.showError(error.message || '上传失败')
   } finally {
-    setTimeout(() => {
-      isUploading.value = false
-      uploadProgress.value = 0
+    if (!isSuccess.value) {
       setTimeout(() => {
-        uploadResult.value = null
-      }, 3000)
-    }, 1000)
+        isUploading.value = false
+        uploadProgress.value = 0
+        setTimeout(() => {
+          uploadResult.value = null
+        }, 3000)
+      }, 1000)
+    }
   }
 }
 </script>
@@ -250,6 +287,13 @@ const uploadFiles = async (files) => {
   overflow: hidden;
 }
 
+.close-button {
+  position: absolute !important;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+}
+
 .upload-zone:hover {
   border-color: var(--md-sys-color-primary);
   background: var(--md-sys-color-surface-container);
@@ -263,6 +307,24 @@ const uploadFiles = async (files) => {
 
 .upload-zone.uploading {
   cursor: not-allowed;
+}
+
+.upload-zone.success {
+  border-color: var(--md-sys-color-tertiary);
+  background: var(--md-sys-color-tertiary-container);
+  cursor: default;
+}
+
+.upload-zone.success .upload-icon {
+  color: var(--md-sys-color-tertiary);
+}
+
+.upload-zone.success .upload-text h3 {
+  color: var(--md-sys-color-on-tertiary-container);
+}
+
+.upload-zone.success .upload-text p {
+  color: var(--md-sys-color-on-tertiary-container);
 }
 
 .upload-content {

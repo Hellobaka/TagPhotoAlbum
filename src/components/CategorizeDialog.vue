@@ -16,7 +16,7 @@
             <div class="photo-container">
               <img
                 v-if="currentPhoto"
-                :src="currentPhoto.url"
+                :src="getImageUrl(currentPhoto.url)"
                 :alt="currentPhoto.title"
               />
               <div v-else class="no-photo">
@@ -68,19 +68,25 @@
               </div>
 
               <div class="info-grid">
-                <md-outlined-select
-                  v-model="editablePhoto.folder"
-                  label="文件夹"
-                  class="info-field"
-                >
-                  <md-select-option
-                    v-for="folder in photoStore.allFolders"
-                    :key="folder"
-                    :value="folder"
-                  >
-                    <div slot="headline">{{ folder }}</div>
-                  </md-select-option>
-                </md-outlined-select>
+                <div class="folder-field">
+                  <md-outlined-text-field
+                    v-model="editablePhoto.folder"
+                    @focus="showFolderSuggestions = true"
+                    label="文件夹"
+                    class="info-field"
+                    ref="folderInput"
+                  />
+                  <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions">
+                    <div
+                      v-for="folder in filteredFolders"
+                      :key="folder"
+                      class="suggestion-item"
+                      @click="selectFolderSuggestion(folder)"
+                    >
+                      {{ folder }}
+                    </div>
+                  </div>
+                </div>
 
                 <md-outlined-text-field
                   v-model="editablePhoto.location"
@@ -92,9 +98,9 @@
           </div>
 
           <div class="dialog-actions">
-            <md-text-button @click="closeDialog" :disabled="isSaving">关闭</md-text-button>
-            <md-text-button @click="handleNext" :disabled="isSaving">下一张</md-text-button>
-            <md-filled-button @click="handleSaveAndNext" :disabled="isSaving">
+            <md-text-button @click="closeDialog" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">关闭</md-text-button>
+            <md-text-button @click="handleNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">下一张</md-text-button>
+            <md-filled-button @click="handleSaveAndNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">
               <span v-if="isSaving" class="loading-spinner"></span>
               {{ isSaving ? '保存中...' : '保存并下一张' }}
             </md-filled-button>
@@ -106,8 +112,9 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, nextTick } from 'vue'
+import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
+import API_CONFIG from '@/config/api'
 
 const props = defineProps({
   isOpen: {
@@ -127,9 +134,23 @@ const currentIndex = ref(0)
 const editablePhoto = ref({})
 const newTag = ref('')
 const isSaving = ref(false)
+const showFolderSuggestions = ref(false)
+const folderInput = ref(null)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
+
+// 计算属性 - 过滤文件夹建议
+const filteredFolders = computed(() => {
+  if (!editablePhoto.value.folder) {
+    return photoStore.allFolders.slice(0, 5) // 显示前5个建议
+  }
+
+  const query = editablePhoto.value.folder.toLowerCase()
+  return photoStore.allFolders
+    .filter(folder => folder.toLowerCase().includes(query))
+    .slice(0, 5) // 最多显示5个建议
+})
 
 // 计算当前显示的图片
 const currentPhoto = computed(() => {
@@ -141,9 +162,11 @@ watch(currentPhoto, (newPhoto) => {
   if (newPhoto) {
     editablePhoto.value = { ...newPhoto }
     newTag.value = ''
+    showFolderSuggestions.value = false
   } else {
     editablePhoto.value = {}
     newTag.value = ''
+    showFolderSuggestions.value = false
   }
 }, { immediate: true })
 
@@ -170,6 +193,27 @@ const addTag = () => {
 const removeTag = (tag) => {
   editablePhoto.value.tags = editablePhoto.value.tags.filter(t => t !== tag)
 }
+
+const selectFolderSuggestion = (folder) => {
+  editablePhoto.value.folder = folder
+  showFolderSuggestions.value = false
+}
+
+// 点击外部关闭建议列表
+const handleClickOutside = (event) => {
+  if (folderInput.value && !folderInput.value.contains(event.target)) {
+    showFolderSuggestions.value = false
+  }
+}
+
+// 添加全局点击事件监听
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 
 const handleSaveAndNext = async () => {
   if (isSaving.value) return
@@ -198,6 +242,23 @@ const goToNext = () => {
     // 已经是最后一张，关闭对话框
     closeDialog()
   }
+}
+
+const getImageUrl = (url) => {
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith('/uploads/')) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
 }
 
 const getTagColorClass = (tag) => {
@@ -339,6 +400,40 @@ const getTagColorClass = (tag) => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+.folder-field {
+  position: relative;
+}
+
+.folder-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  box-shadow: var(--md-sys-elevation-level2);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.suggestion-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.suggestion-item:hover {
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.suggestion-item:not(:last-child) {
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
 .dialog-actions {

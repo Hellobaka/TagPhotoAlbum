@@ -9,14 +9,14 @@
     </div>
 
     <!-- 瀑布流图片展示 -->
-    <div v-if="!isLoading" class="masonry-grid">
+    <div v-if="!isLoading" class="masonry-grid" ref="gridContainer">
       <div
         v-for="photo in photos"
         :key="photo.id"
         class="masonry-item"
         @click="openPhotoDetail(photo)"
       >
-        <img :src="photo.url" :alt="photo.title" />
+        <img :src="getImageUrl(photo.url)" :alt="photo.title" />
         <div class="photo-overlay">
           <div class="photo-info">
             <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
@@ -39,6 +39,19 @@
       </div>
     </div>
 
+    <!-- 加载更多状态 -->
+    <div v-if="isLoadMore" class="load-more-state">
+      <div class="load-more-content">
+        <md-circular-progress indeterminate></md-circular-progress>
+        <p class="md-typescale-body-medium load-more-text">正在加载更多照片...</p>
+      </div>
+    </div>
+
+    <!-- 没有更多数据提示 -->
+    <div v-if="!hasMore && photos.length > 0" class="no-more-state">
+      <p class="md-typescale-body-medium no-more-text">没有更多照片了</p>
+    </div>
+
     <!-- 空状态 -->
     <div v-if="!isLoading && photos.length === 0" class="empty-state">
       <span class="material-symbols-outlined empty-icon">photo</span>
@@ -49,7 +62,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import API_CONFIG from '@/config/api'
 
 const props = defineProps({
   photos: {
@@ -63,10 +77,58 @@ const props = defineProps({
   loadingType: {
     type: String,
     default: 'photos'
+  },
+  isLoadMore: {
+    type: Boolean,
+    default: false
+  },
+  hasMore: {
+    type: Boolean,
+    default: true
   }
 })
 
-const emit = defineEmits(['open-photo-detail'])
+const emit = defineEmits(['open-photo-detail', 'load-more'])
+
+const gridContainer = ref(null)
+let observer = null
+
+// 设置 Intersection Observer 监听滚动到底部
+const setupIntersectionObserver = () => {
+  if (!gridContainer.value) return
+
+  // 创建 Intersection Observer
+  observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !props.isLoadMore && props.hasMore) {
+          emit('load-more')
+        }
+      })
+    },
+    {
+      root: null,
+      rootMargin: '100px', // 提前100px触发加载
+      threshold: 0.1
+    }
+  )
+
+  // 创建一个哨兵元素来检测是否滚动到底部
+  const sentinel = document.createElement('div')
+  sentinel.className = 'load-more-sentinel'
+  gridContainer.value.appendChild(sentinel)
+  observer.observe(sentinel)
+}
+
+onMounted(() => {
+  setupIntersectionObserver()
+})
+
+onUnmounted(() => {
+  if (observer) {
+    observer.disconnect()
+  }
+})
 
 // 计算加载文本
 const loadingText = computed(() => {
@@ -84,6 +146,23 @@ const loadingText = computed(() => {
 // 方法
 const openPhotoDetail = (photo) => {
   emit('open-photo-detail', photo)
+}
+
+const getImageUrl = (url) => {
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith('/uploads/')) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
 }
 
 const getTagColorClass = (tag) => {
@@ -190,6 +269,43 @@ const getTagColorClass = (tag) => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+}
+
+/* 加载更多状态 */
+.load-more-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px 24px;
+}
+
+.load-more-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.load-more-text {
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: center;
+}
+
+/* 没有更多数据提示 */
+.no-more-state {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.no-more-text {
+  opacity: 0.7;
+}
+
+/* 哨兵元素 - 用于检测滚动 */
+.load-more-sentinel {
+  height: 1px;
+  width: 100%;
 }
 
 /* 空状态 */

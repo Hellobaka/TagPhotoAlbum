@@ -1,5 +1,18 @@
 <template>
-  <div class="home">
+  <div
+    class="home"
+    @dragover.prevent="handleGlobalDragOver"
+    @dragleave="handleGlobalDragLeave"
+    @drop="handleGlobalDrop"
+  >
+    <!-- 全局拖拽上传区域 -->
+    <UploadZone
+      v-if="showUploadZone"
+      :class="['global-upload-zone', { 'closing': isClosingUploadZone }]"
+      @close="closeUploadZone"
+      @upload-complete="closeUploadZone"
+    />
+
     <div class="layout">
       <!-- 左侧导航栏 -->
       <Sidebar
@@ -19,23 +32,48 @@
       <div class="main-content">
         <div class="content-header">
           <div class="header-content">
-            <h1 class="md-typescale-headline-small">{{ getActiveTabLabel }}</h1>
-            <div class="search-box">
-              <md-outlined-text-field
-                v-model="searchQuery"
-                label="搜索图片..."
-                type="search"
-                has-trailing-icon
+            <div class="header-title-section">
+              <h1 class="md-typescale-headline-small">{{ getActiveTabLabel }}</h1>
+              <!-- 刷新按钮 -->
+              <md-icon-button
+                @click="handleRefresh"
+                :disabled="isRefreshing"
+                class="refresh-icon-button"
               >
-                <span slot="leading-icon" class="material-symbols-outlined">search</span>
-                <md-icon-button
-                  v-if="searchQuery"
-                  slot="trailing-icon"
-                  @click="clearSearch"
+                <span
+                  class="material-symbols-outlined refresh-icon"
+                  :class="{ 'refreshing': isRefreshing }"
                 >
-                  <span class="material-symbols-outlined">close</span>
-                </md-icon-button>
-              </md-outlined-text-field>
+                  refresh
+                </span>
+              </md-icon-button>
+            </div>
+            <div class="header-actions">
+              <div class="search-box">
+                <md-outlined-text-field
+                  v-model="searchQuery"
+                  label="搜索图片..."
+                  type="search"
+                  has-trailing-icon
+                >
+                  <span slot="leading-icon" class="material-symbols-outlined">search</span>
+                  <md-icon-button
+                    v-if="searchQuery"
+                    slot="trailing-icon"
+                    @click="clearSearch"
+                  >
+                    <span class="material-symbols-outlined">close</span>
+                  </md-icon-button>
+                </md-outlined-text-field>
+              </div>
+              <!-- 上传按钮 -->
+              <md-filled-button
+                @click="showUploadZone = true"
+                class="upload-button"
+              >
+                <md-icon slot="icon">add_photo_alternate</md-icon>
+                上传图片
+              </md-filled-button>
             </div>
           </div>
         </div>
@@ -54,19 +92,6 @@
           @clear-all-filters="clearAllFilters"
         />
 
-        <!-- 推荐页面刷新按钮 -->
-        <div v-if="activeTab === 'recommend' && filteredPhotos.length > 0" class="refresh-section">
-          <div class="refresh-container">
-            <md-text-button
-              @click="refreshRecommendPhotos"
-              class="refresh-button"
-              :disabled="photoStore.isLoading"
-            >
-              <span class="material-symbols-outlined refresh-icon">refresh</span>
-              再展示一批
-            </md-text-button>
-          </div>
-        </div>
 
         <!-- 未分类页面分类按钮 -->
         <div v-if="activeTab === 'uncategorized' && filteredPhotos.length > 0" class="categorize-section">
@@ -86,7 +111,10 @@
           :photos="filteredPhotos"
           :is-loading="isLoading"
           :loading-type="loadingType"
+          :is-load-more="photoStore.isLoadMore"
+          :has-more="photoStore.hasMore"
           @open-photo-detail="openPhotoDetail"
+          @load-more="handleLoadMore"
         />
       </div>
     </div>
@@ -119,6 +147,8 @@ import FilterStatus from '@/components/FilterStatus.vue'
 import PhotoGrid from '@/components/PhotoGrid.vue'
 import PhotoDialog from '@/components/PhotoDialog.vue'
 import CategorizeDialog from '@/components/CategorizeDialog.vue'
+import UploadZone from '@/components/UploadZone.vue'
+import { useNotificationStore } from '@/stores/notificationStore'
 
 // 响应式数据
 const isCollapsed = ref(false)
@@ -131,6 +161,9 @@ const selectedFolder = ref(null)
 const selectedLocation = ref(null)
 const searchQuery = ref('')
 const isCategorizing = ref(false)
+const showUploadZone = ref(false)
+const isClosingUploadZone = ref(false)
+const isRefreshing = ref(false)
 
 // 标签页配置
 const tabs = [
@@ -143,6 +176,7 @@ const tabs = [
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
+const notificationStore = useNotificationStore()
 
 // 计算属性
 const getActiveTabLabel = computed(() => {
@@ -177,39 +211,9 @@ const filteredPhotos = computed(() => {
     return photoStore.uncategorizedPhotos
   }
 
-  // 根据筛选条件筛选图片
-  let photos = photoStore.photos
-
-  // 标签筛选 - 使用 AND 逻辑（必须包含所有选中的标签）
-  if (selectedTags.value.length > 0) {
-    photos = photos.filter(photo =>
-      selectedTags.value.every(tag => photo.tags.includes(tag))
-    )
-  }
-
-  // 文件夹筛选
-  if (selectedFolder.value) {
-    photos = photos.filter(photo => photo.folder === selectedFolder.value)
-  }
-
-  // 地点筛选
-  if (selectedLocation.value) {
-    photos = photos.filter(photo => photo.location === selectedLocation.value)
-  }
-
-  // 搜索筛选
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase().trim()
-    photos = photos.filter(photo =>
-      photo.title.toLowerCase().includes(query) ||
-      photo.description.toLowerCase().includes(query) ||
-      photo.tags.some(tag => tag.toLowerCase().includes(query)) ||
-      photo.folder.toLowerCase().includes(query) ||
-      photo.location.toLowerCase().includes(query)
-    )
-  }
-
-  return photos
+  // 标签、文件夹、地点页面：直接返回从API获取的已筛选照片
+  // 现在筛选在服务器端完成，不需要在客户端再次筛选
+  return photoStore.photos
 })
 
 // 方法
@@ -225,43 +229,128 @@ const setActiveTab = async (tabId) => {
   selectedTags.value = []
   selectedFolder.value = null
   selectedLocation.value = null
+  searchQuery.value = ''
 
-  // 如果是推荐标签页，获取推荐照片
-  if (tabId === 'recommend') {
-    try {
-      await photoStore.getRecommendPhotos()
-    } catch (error) {
-      console.error('Failed to load recommend photos:', error)
+  try {
+    // 根据标签页类型刷新数据
+    switch (tabId) {
+      case 'recommend':
+        // 推荐页面：获取推荐照片
+        await photoStore.getRecommendPhotos()
+        break
+      case 'uncategorized':
+        // 未分类页面：获取未分类照片
+        await photoStore.getUncategorizedPhotos()
+        break
+      default:
+        // 标签、文件夹、地点页面：加载第一页数据
+        await photoStore.loadFirstPage()
+        break
     }
+  } catch (error) {
+    console.error(`Failed to load data for tab ${tabId}:`, error)
   }
 }
 
-const toggleTag = (tag) => {
+const toggleTag = async (tag) => {
   const index = selectedTags.value.indexOf(tag)
   if (index > -1) {
     selectedTags.value.splice(index, 1)
   } else {
     selectedTags.value.push(tag)
   }
+
+  // 应用筛选
+  await applyFilters()
 }
 
-const selectFolder = (folder) => {
+const selectFolder = async (folder) => {
   selectedFolder.value = selectedFolder.value === folder ? null : folder
+
+  // 应用筛选
+  await applyFilters()
 }
 
-const selectLocation = (location) => {
+const selectLocation = async (location) => {
   selectedLocation.value = selectedLocation.value === location ? null : location
+
+  // 应用筛选
+  await applyFilters()
 }
 
-const clearAllFilters = () => {
+const clearAllFilters = async () => {
   selectedTags.value = []
   selectedFolder.value = null
   selectedLocation.value = null
   searchQuery.value = ''
+
+  // 清除筛选并重新加载
+  await applyFilters()
 }
 
-const clearSearch = () => {
+const clearSearch = async () => {
   searchQuery.value = ''
+
+  // 应用筛选
+  await applyFilters()
+}
+
+// 应用筛选条件
+const applyFilters = async () => {
+  if (activeTab.value === 'recommend' || activeTab.value === 'uncategorized') {
+    return
+  }
+
+  try {
+    const filters = {
+      tags: selectedTags.value,
+      folder: selectedFolder.value,
+      location: selectedLocation.value,
+      searchQuery: searchQuery.value
+    }
+
+    await photoStore.applyFilters(filters)
+  } catch (error) {
+    console.error('Failed to apply filters:', error)
+  }
+}
+
+const handleRefresh = async () => {
+  if (isRefreshing.value) return
+
+  isRefreshing.value = true
+
+  try {
+    let photoCount = 0
+
+    // 根据当前标签页类型刷新数据
+    switch (activeTab.value) {
+      case 'recommend':
+        // 推荐页面：获取推荐照片
+        await photoStore.getRecommendPhotos()
+        photoCount = photoStore.recommendPhotos.length
+        break
+      case 'uncategorized':
+        // 未分类页面：获取未分类照片
+        await photoStore.getUncategorizedPhotos()
+        photoCount = photoStore.uncategorizedPhotos.length
+        break
+      default:
+        // 标签、文件夹、地点页面：加载第一页数据，保持当前筛选条件
+        await photoStore.loadFirstPage()
+        photoCount = photoStore.photos.length
+        break
+    }
+
+    // 显示成功通知
+    notificationStore.showSuccess(`已刷新数据，获得 ${photoCount} 张图片`)
+
+  } catch (error) {
+    console.error('Failed to refresh data:', error)
+    notificationStore.showError('刷新数据失败')
+  } finally {
+    isRefreshing.value = false
+  }
 }
 
 const refreshRecommendPhotos = async () => {
@@ -311,22 +400,79 @@ const handleNext = () => {
   // 直接进入下一张，不保存当前图片
 }
 
-onMounted(async () => {
-  // 初始化数据
+// 懒加载更多照片
+const handleLoadMore = async () => {
+  if (activeTab.value === 'recommend' || activeTab.value === 'uncategorized') {
+    // 推荐和未分类页面不支持懒加载
+    return
+  }
+
   try {
-    // 如果是推荐页面，先设置加载状态
-    if (activeTab.value === 'recommend') {
-      photoStore.setLoadingState('recommend', true)
-    }
-
-    await photoStore.initializeData()
-
-    // 如果当前是推荐页面，加载推荐照片
-    if (activeTab.value === 'recommend') {
-      await photoStore.getRecommendPhotos()
+    const loadedCount = await photoStore.loadMorePhotos()
+    if (loadedCount > 0) {
+      notificationStore.showSuccess(`已加载 ${loadedCount} 张新照片`)
     }
   } catch (error) {
-    console.error('Failed to initialize photo data:', error)
+    console.error('Failed to load more photos:', error)
+    notificationStore.showError('加载更多照片失败')
+  }
+}
+
+// 全局拖拽相关方法
+const handleGlobalDragOver = (event) => {
+  event.preventDefault()
+  // 检查拖拽的是否是文件
+  if (event.dataTransfer.types.includes('Files')) {
+    showUploadZone.value = true
+  }
+}
+
+const handleGlobalDragLeave = (event) => {
+  event.preventDefault()
+  // 只有当拖拽离开整个页面时才关闭上传区域
+  if (!event.relatedTarget || event.relatedTarget === document.documentElement) {
+    closeUploadZone()
+  }
+}
+
+const handleGlobalDrop = (event) => {
+  event.preventDefault()
+  // 拖拽文件到页面时，UploadZone会处理文件上传
+  // 这里只需要确保UploadZone显示即可
+  if (event.dataTransfer.files.length > 0) {
+    showUploadZone.value = true
+  } else {
+    // 如果没有文件，关闭上传区域
+    closeUploadZone()
+  }
+}
+
+const closeUploadZone = () => {
+  if (showUploadZone.value && !isClosingUploadZone.value) {
+    isClosingUploadZone.value = true
+    // 等待动画完成后再隐藏组件
+    setTimeout(() => {
+      showUploadZone.value = false
+      isClosingUploadZone.value = false
+    }, 300)
+  }
+}
+
+onMounted(async () => {
+  // 根据当前标签页加载数据
+  try {
+    if (activeTab.value === 'recommend') {
+      // 推荐页面：加载推荐照片
+      await photoStore.getRecommendPhotos()
+    } else if (activeTab.value === 'uncategorized') {
+      // 未分类页面：加载未分类照片
+      await photoStore.getUncategorizedPhotos()
+    } else {
+      // 标签、文件夹、地点页面：加载第一页数据
+      await photoStore.loadFirstPage()
+    }
+  } catch (error) {
+    console.error('Failed to load initial photo data:', error)
   }
 })
 </script>
@@ -373,9 +519,45 @@ onMounted(async () => {
   gap: 24px;
 }
 
-.search-box {
-  min-width: 300px;
+.header-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
+
+.refresh-icon-button {
+  color: var(--md-sys-color-on-surface);
+}
+
+.refresh-icon.refreshing {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.upload-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+
 
 
 /* 瀑布流样式 */
@@ -435,47 +617,6 @@ onMounted(async () => {
 }
 
 
-/* 推荐页面刷新按钮样式 */
-.refresh-section {
-  margin-top: 24px;
-  margin-left: 24px;
-  position: sticky;
-  top: var(--header-height);
-  z-index: 9;
-  background: var(--md-sys-color-surface);
-  padding: 16px 0;
-}
-
-.refresh-container {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.refresh-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 20px;
-  background: var(--md-sys-color-secondary-container);
-  color: var(--md-sys-color-on-secondary-container);
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-
-.refresh-button:hover {
-  background: var(--md-sys-color-secondary-container-hover);
-}
-
-.refresh-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.refresh-icon {
-  font-size: 18px;
-}
 
 /* 未分类页面分类按钮样式 */
 .categorize-section {
@@ -514,6 +655,79 @@ onMounted(async () => {
   font-size: 18px;
 }
 
+/* 全局上传区域样式 */
+.global-upload-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  animation: fadeIn 0.3s ease;
+}
+
+.global-upload-zone.closing {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+.global-upload-zone.closing .upload-zone {
+  animation: scaleOut 0.3s ease forwards;
+}
+
+.global-upload-zone .upload-zone {
+  max-width: 600px;
+  width: 100%;
+  background: var(--md-sys-color-surface-container-high);
+  border: 2px solid var(--md-sys-color-outline);
+  animation: scaleIn 0.3s ease;
+}
+
+/* 动画定义 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .masonry-grid {
@@ -533,8 +747,21 @@ onMounted(async () => {
     align-items: stretch;
     gap: 16px;
   }
+  .header-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
   .search-box {
     min-width: auto;
+  }
+  .global-upload-zone {
+    padding: 20px;
+  }
+  .upload-button {
+    padding: 12px;
+  }
+  .upload-button .md-icon {
+    margin-right: 0;
   }
 }
 

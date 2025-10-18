@@ -12,47 +12,26 @@
 
           <div class="dialog-content">
             <div class="photo-container">
-              <img :src="selectedPhoto.url" :alt="selectedPhoto.title" />
+              <img :src="getImageUrl(selectedPhoto.url)" :alt="selectedPhoto.title" />
             </div>
 
             <div class="info-section">
-              <md-outlined-text-field
-                :value="editablePhoto.title"
-                @input="e => editablePhoto.title = e.target.value"
-                label="标题"
-                class="info-field"
-              />
+              <md-outlined-text-field :value="editablePhoto.title" @input="e => editablePhoto.title = e.target.value"
+                label="标题" class="info-field" />
 
-              <md-outlined-text-field
-                :value="editablePhoto.description"
-                @input="e => editablePhoto.description = e.target.value"
-                label="描述"
-                type="textarea"
-                rows="3"
-                class="info-field"
-              />
+              <md-outlined-text-field :value="editablePhoto.description"
+                @input="e => editablePhoto.description = e.target.value" label="描述" type="textarea" rows="3"
+                class="info-field" />
 
               <div class="tags-section">
                 <h3 class="md-typescale-title-medium">标签</h3>
                 <div class="tags-container">
-                  <md-suggestion-chip
-                    v-for="tag in editablePhoto.tags"
-                    :key="tag"
-                    :label="tag"
-                    @click="removeTag(tag)"
-                    :class="getTagColorClass(tag)"
-                  />
+                  <md-suggestion-chip v-for="tag in editablePhoto.tags" :key="tag" :label="tag" @click="removeTag(tag)"
+                    :class="getTagColorClass(tag)" />
                   <div class="add-tag">
-                    <md-outlined-text-field
-                      :value="newTag"
-                      @input="e => newTag = e.target.value"
-                      label="添加标签"
-                      @keyup.enter="addTag"
-                    >
-                      <md-icon-button
-                        slot="trailing-icon"
-                        @click="addTag"
-                      >
+                    <md-outlined-text-field :value="newTag" @input="e => newTag = e.target.value" label="添加标签"
+                      @keyup.enter="addTag">
+                      <md-icon-button slot="trailing-icon" @click="addTag">
                         <span class="material-symbols-outlined">add</span>
                       </md-icon-button>
                     </md-outlined-text-field>
@@ -61,28 +40,37 @@
               </div>
 
               <div class="info-grid">
-                  <md-outlined-select :value="editablePhoto.folder" @change="e => editablePhoto.folder = e.target.value" label="文件夹" class="info-field">
-                    <md-select-option
-                      v-for="option in photoStore.allFolders"
-                      :key="option.value"
-                      :value="option.value"
-                    >
-                      <div slot="headline">{{ option }}</div>
-                    </md-select-option>
-                  </md-outlined-select>
+                <div class="folder-field">
                   <md-outlined-text-field
-                  :value="editablePhoto.location"
-                  @input="e => editablePhoto.location = e.target.value"
-                  label="地点"
-                  class="info-field"
-                />
+                    :value="editablePhoto.folder"
+                    @input="handleFolderInput"
+                    @focus="showFolderSuggestions = true"
+                    label="文件夹"
+                    class="info-field"
+                    ref="folderInput"
+                  />
+                  <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions">
+                    <div
+                      v-for="folder in filteredFolders"
+                      :key="folder"
+                      class="suggestion-item"
+                      @click="selectFolderSuggestion(folder)"
+                    >
+                      {{ folder }}
+                    </div>
+                  </div>
+                </div>
+                <md-outlined-text-field :value="editablePhoto.location"
+                  @input="e => editablePhoto.location = e.target.value" label="地点" class="info-field" />
               </div>
             </div>
           </div>
 
           <div class="dialog-actions">
-            <md-text-button @click="closePhotoDetail" style="padding-left: 15px; padding-right: 15px;" :disabled="isSaving">取消</md-text-button>
-            <md-text-button @click="savePhotoInfo" style="padding-left: 15px; padding-right: 15px;" :disabled="isSaving">
+            <md-text-button @click="closePhotoDetail" style="padding-left: 15px; padding-right: 15px;"
+              :disabled="isSaving">取消</md-text-button>
+            <md-text-button @click="savePhotoInfo" style="padding-left: 15px; padding-right: 15px;"
+              :disabled="isSaving">
               <span v-if="isSaving" class="loading-spinner"></span>
               {{ isSaving ? '保存中...' : '保存' }}
             </md-text-button>
@@ -94,8 +82,9 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
+import API_CONFIG from '@/config/api'
 
 const props = defineProps({
   selectedPhoto: {
@@ -110,18 +99,34 @@ const emit = defineEmits(['close-photo-detail', 'save-photo-info'])
 const editablePhoto = ref({})
 const newTag = ref('')
 const isSaving = ref(false)
+const showFolderSuggestions = ref(false)
+const folderInput = ref(null)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
+
+// 计算属性 - 过滤文件夹建议
+const filteredFolders = computed(() => {
+  if (!editablePhoto.value.folder) {
+    return photoStore.allFolders.slice(0, 5) // 显示前5个建议
+  }
+
+  const query = editablePhoto.value.folder.toLowerCase()
+  return photoStore.allFolders
+    .filter(folder => folder.toLowerCase().includes(query))
+    .slice(0, 5) // 最多显示5个建议
+})
 
 // 监听选中的照片变化
 watch(() => props.selectedPhoto, (newPhoto) => {
   if (newPhoto) {
     editablePhoto.value = { ...newPhoto }
     newTag.value = ''
+    showFolderSuggestions.value = false
   } else {
     editablePhoto.value = {}
     newTag.value = ''
+    showFolderSuggestions.value = false
   }
 }, { immediate: true })
 
@@ -141,6 +146,32 @@ const removeTag = (tag) => {
   editablePhoto.value.tags = editablePhoto.value.tags.filter(t => t !== tag)
 }
 
+const handleFolderInput = (e) => {
+  editablePhoto.value.folder = e.target.value
+  showFolderSuggestions.value = true
+}
+
+const selectFolderSuggestion = (folder) => {
+  editablePhoto.value.folder = folder
+  showFolderSuggestions.value = false
+}
+
+// 点击外部关闭建议列表
+const handleClickOutside = (event) => {
+  if (folderInput.value && !folderInput.value.contains(event.target)) {
+    showFolderSuggestions.value = false
+  }
+}
+
+// 添加全局点击事件监听
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
 const savePhotoInfo = async () => {
   if (isSaving.value) return
 
@@ -155,6 +186,23 @@ const savePhotoInfo = async () => {
   } finally {
     isSaving.value = false
   }
+}
+
+const getImageUrl = (url) => {
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith('/uploads/')) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
 }
 
 const getTagColorClass = (tag) => {
@@ -286,6 +334,40 @@ const getTagColorClass = (tag) => {
   gap: 16px;
 }
 
+.folder-field {
+  position: relative;
+}
+
+.folder-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  box-shadow: var(--md-sys-elevation-level2);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.suggestion-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.suggestion-item:hover {
+  background: var(--md-sys-color-surface-container-highest);
+}
+
+.suggestion-item:not(:last-child) {
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -306,8 +388,13 @@ const getTagColorClass = (tag) => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 动画样式 */

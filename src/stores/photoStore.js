@@ -21,6 +21,17 @@ export const usePhotoStore = defineStore('photos', {
       locations: false,
       search: false,
       recommend: false
+    },
+    // 懒加载相关状态
+    currentPage: 1,
+    hasMore: true,
+    isLoadMore: false,
+    // 筛选状态
+    currentFilters: {
+      tags: [],
+      folder: null,
+      location: null,
+      searchQuery: ''
     }
   }),
 
@@ -64,7 +75,8 @@ export const usePhotoStore = defineStore('photos', {
     uncategorizedPhotos: (state) => {
       return state.photos.filter(photo =>
         !photo.tags || photo.tags.length === 0 ||
-        !photo.folder || !photo.location ||
+        !photo.folder || photo.folder === '' ||
+        !photo.location || photo.location === '' ||
         !photo.title || photo.title === '未命名'
       )
     }
@@ -147,59 +159,94 @@ export const usePhotoStore = defineStore('photos', {
       }
     },
 
-    // 初始化数据
-    async initializeData() {
+    // 加载第一页数据 - 用于标签、文件夹、地点页面的首次加载和刷新
+    async loadFirstPage(filters = {}) {
       try {
         this.isLoading = true
         this.error = null
+        this.currentPage = 1
+        this.hasMore = true
 
-        // 显示加载通知
-        const notificationStore = useNotificationStore()
-        notificationStore.showLoading('正在加载照片数据...')
+        // 更新筛选状态
+        if (filters) {
+          this.currentFilters = { ...this.currentFilters, ...filters }
+        }
 
-        // 设置各个部分的加载状态
+        // 设置照片加载状态
         this.setLoadingState('photos', true)
-        this.setLoadingState('tags', true)
-        this.setLoadingState('folders', true)
-        this.setLoadingState('locations', true)
 
-        // 从 API 获取照片数据
-        const photosResponse = await photoApi.getPhotos()
+        // 从 API 获取照片数据（第一页），传递筛选参数
+        const photosResponse = await photoApi.getPhotosPaginated(1, 20, this.currentFilters)
         this.photos = photosResponse.data || []
         this.setLoadingState('photos', false)
 
-        // 获取标签数据
-        const tagsResponse = await photoApi.getTags()
-        this.tags = tagsResponse.data || []
-        this.setLoadingState('tags', false)
-
-        // 获取文件夹数据
-        const foldersResponse = await photoApi.getFolders()
-        this.folders = foldersResponse.data || []
-        this.setLoadingState('folders', false)
-
-        // 获取地点数据
-        const locationsResponse = await photoApi.getLocations()
-        this.locations = locationsResponse.data || []
-        this.setLoadingState('locations', false)
-
-        // 隐藏加载通知
-        notificationStore.removeMessage(notificationStore.activeMessages.find(msg => msg.type === 'loading')?.id)
-        notificationStore.showSuccess('数据加载完成')
-
       } catch (error) {
         this.error = error.message
-        console.error('Failed to initialize data:', error)
+        console.error('Failed to load first page:', error)
         const notificationStore = useNotificationStore()
-        notificationStore.removeMessage(notificationStore.activeMessages.find(msg => msg.type === 'loading')?.id)
         notificationStore.showError(error.message || '加载数据失败')
         throw error
       } finally {
         this.isLoading = false
-        // 重置所有加载状态
-        Object.keys(this.loadingStates).forEach(key => {
-          this.setLoadingState(key, false)
-        })
+        this.setLoadingState('photos', false)
+      }
+    },
+
+    // 加载更多照片
+    async loadMorePhotos() {
+      if (this.isLoadMore || !this.hasMore) return
+
+      try {
+        this.isLoadMore = true
+        const nextPage = this.currentPage + 1
+
+        // 使用当前筛选参数加载下一页
+        const response = await photoApi.getPhotosPaginated(nextPage, 20, this.currentFilters)
+        const newPhotos = response.data || []
+
+        if (newPhotos.length > 0) {
+          this.photos = [...this.photos, ...newPhotos]
+          this.currentPage = nextPage
+
+          // 如果返回的照片数量小于请求的数量，说明没有更多数据了
+          if (newPhotos.length < 20) {
+            this.hasMore = false
+          }
+        } else {
+          this.hasMore = false
+        }
+
+        return newPhotos.length
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to load more photos:', error)
+        throw error
+      } finally {
+        this.isLoadMore = false
+      }
+    },
+
+    // 更新筛选条件并重新加载
+    async applyFilters(filters = {}) {
+      try {
+        // 更新筛选状态
+        this.currentFilters = { ...this.currentFilters, ...filters }
+
+        // 重新加载第一页
+        await this.loadFirstPage()
+      } catch (error) {
+        console.error('Failed to apply filters:', error)
+        throw error
+      }
+    },
+
+    // 清除筛选条件
+    clearFilters() {
+      this.currentFilters = {
+        tags: [],
+        folder: null,
+        location: null,
+        searchQuery: ''
       }
     },
 
@@ -274,10 +321,75 @@ export const usePhotoStore = defineStore('photos', {
         this.error = error.message
         const notificationStore = useNotificationStore()
         notificationStore.showError(error.message || '加载推荐照片失败')
-
         throw error
       } finally {
         this.setLoadingState('recommend', false)
+      }
+    },
+
+    // 获取未分类照片
+    async getUncategorizedPhotos() {
+      try {
+        this.setLoadingState('photos', true)
+        this.error = null
+        const response = await photoApi.getUncategorizedPhotos()
+        this.photos = response.data || []
+        return this.photos
+      } catch (error) {
+        this.error = error.message
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || '加载未分类照片失败')
+        throw error
+      } finally {
+        this.setLoadingState('photos', false)
+      }
+    },
+
+    // 获取标签数据
+    async getTagsData() {
+      try {
+        this.setLoadingState('tags', true)
+        const response = await photoApi.getTags()
+        this.tags = response.data || []
+        return this.tags
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to load tags:', error)
+        throw error
+      } finally {
+        this.setLoadingState('tags', false)
+      }
+    },
+
+    // 获取文件夹数据
+    async getFoldersData() {
+      try {
+        this.setLoadingState('folders', true)
+        const response = await photoApi.getFolders()
+        this.folders = response.data || []
+        return this.folders
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to load folders:', error)
+        throw error
+      } finally {
+        this.setLoadingState('folders', false)
+      }
+    },
+
+    // 获取地点数据
+    async getLocationsData() {
+      try {
+        this.setLoadingState('locations', true)
+        const response = await photoApi.getLocations()
+        this.locations = response.data || []
+        return this.locations
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to load locations:', error)
+        throw error
+      } finally {
+        this.setLoadingState('locations', false)
       }
     },
 

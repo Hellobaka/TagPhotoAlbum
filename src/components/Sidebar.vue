@@ -74,6 +74,7 @@
 import { usePhotoStore } from '@/stores/photoStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useRouter } from 'vue-router'
+import { onMounted, watch } from 'vue'
 
 const props = defineProps({
   isCollapsed: {
@@ -113,12 +114,59 @@ const tabs = [
   { id: 'tags', label: '标签', icon: 'local_offer' },
   { id: 'folders', label: '文件夹', icon: 'folder' },
   { id: 'locations', label: '地点', icon: 'location_on' },
+  { id: 'uncategorized', label: '未分类', icon: 'folder_open' },
 ]
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
 const authStore = useAuthStore()
 const router = useRouter()
+
+// 监听标签页变化，按需加载筛选数据
+watch(() => props.activeTab, async (newTab) => {
+  if (!props.isCollapsed) {
+    await loadFilterData(newTab)
+  }
+})
+
+// 监听侧边栏展开状态，展开时加载筛选数据
+watch(() => props.isCollapsed, async (isCollapsed) => {
+  if (!isCollapsed) {
+    await loadFilterData(props.activeTab)
+  }
+})
+
+// 按需加载筛选数据
+const loadFilterData = async (tabId) => {
+  try {
+    switch (tabId) {
+      case 'tags':
+        if (photoStore.tags.length === 0) {
+          await photoStore.getTagsData()
+        }
+        break
+      case 'folders':
+        if (photoStore.folders.length === 0) {
+          await photoStore.getFoldersData()
+        }
+        break
+      case 'locations':
+        if (photoStore.locations.length === 0) {
+          await photoStore.getLocationsData()
+        }
+        break
+    }
+  } catch (error) {
+    console.error(`Failed to load filter data for ${tabId}:`, error)
+  }
+}
+
+onMounted(() => {
+  // 如果侧边栏展开，加载当前标签页的筛选数据
+  if (!props.isCollapsed) {
+    loadFilterData(props.activeTab)
+  }
+})
 
 // 方法
 const toggleSidebar = () => {
