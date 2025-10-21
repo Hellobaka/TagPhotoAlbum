@@ -13,15 +13,24 @@
           </div>
 
           <div class="dialog-content">
-            <div class="photo-container">
+            <div class="photo-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
               <img
                 v-if="currentPhoto"
-                :src="getImageUrl(currentPhoto)"
+                :src="currentImageUrl"
                 :alt="currentPhoto.title"
               />
               <div v-else class="no-photo">
                 <span class="material-symbols-outlined">photo</span>
                 <p>没有更多未分类图片</p>
+              </div>
+              <div class="original-image-button" :class="{ 'show': showOriginalButton && currentPhoto?.compressedFilePath && !isShowingOriginal }">
+                <md-filled-tonal-button
+                  @click="toggleOriginalImage"
+                  style="padding-left: 15px; padding-right: 15px;"
+                >
+                  <md-icon slot="icon">open_in_full</md-icon>
+                  显示原图
+                </md-filled-tonal-button>
               </div>
             </div>
 
@@ -182,6 +191,9 @@ const tagInput = ref(null)
 const isTagSuggestionsClosing = ref(false)
 const isFolderSuggestionsClosing = ref(false)
 const tagsToRemove = ref([])
+const showOriginalButton = ref(false)
+const isShowingOriginal = ref(false)
+const currentImageUrl = ref('')
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -233,6 +245,10 @@ watch(currentPhoto, (newPhoto) => {
     isTagSuggestionsClosing.value = false
     isFolderSuggestionsClosing.value = false
     tagsToRemove.value = []
+    isShowingOriginal.value = false
+    showOriginalButton.value = false
+    // 初始化图片URL
+    currentImageUrl.value = getImageUrl(newPhoto)
   } else {
     editablePhoto.value = {}
     newTag.value = ''
@@ -241,6 +257,9 @@ watch(currentPhoto, (newPhoto) => {
     isTagSuggestionsClosing.value = false
     isFolderSuggestionsClosing.value = false
     tagsToRemove.value = []
+    isShowingOriginal.value = false
+    showOriginalButton.value = false
+    currentImageUrl.value = ''
   }
 }, { immediate: true })
 
@@ -493,6 +512,49 @@ const getFolderSuggestionsStyle = () => {
     width: `${rect.width}px`
   }
 }
+
+const toggleOriginalImage = () => {
+  if (!currentPhoto.value) return
+
+  if (isShowingOriginal.value) {
+    // 切换回压缩图
+    currentImageUrl.value = getImageUrl(currentPhoto.value)
+    isShowingOriginal.value = false
+  } else {
+    // 切换到原图
+    currentImageUrl.value = getOriginalImageUrl(currentPhoto.value)
+    isShowingOriginal.value = true
+  }
+}
+
+const getOriginalImageUrl = (photo) => {
+  if (!photo) return ''
+
+  let url = photo.filePath
+
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
+}
+
+const handleMouseEnter = () => {
+  showOriginalButton.value = true
+}
+
+const handleMouseLeave = () => {
+  showOriginalButton.value = false
+}
 </script>
 
 <style scoped>
@@ -553,12 +615,28 @@ const getFolderSuggestionsStyle = () => {
   justify-content: center;
   min-height: 400px;
   margin-top: 10px;
+  position: relative;
 }
 
 .photo-container img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.original-image-button {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.original-image-button.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .no-photo {
