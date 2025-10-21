@@ -34,117 +34,21 @@
               </div>
             </div>
 
-            <div class="info-section">
-              <md-outlined-text-field
-                v-model="editablePhoto.title"
-                label="标题"
-                class="info-field"
-              />
-
-              <md-outlined-text-field
-                v-model="editablePhoto.description"
-                label="描述"
-                type="textarea"
-                rows="3"
-                class="info-field"
-              />
-
-              <div class="tags-section">
-                <h3 class="md-typescale-title-medium">标签</h3>
-
-                <!-- 常用标签区域 -->
-                <div class="popular-tags-section">
-                  <h4 class="md-typescale-body-medium">常用标签</h4>
-                  <div class="popular-tags-container">
-                    <span v-if="popularTags.length == 0">空</span>
-                    <md-suggestion-chip
-                      v-for="tag in popularTags"
-                      :key="tag"
-                      :label="`${tag.name} (${tag.count})`"
-                      @click="toggleTag(tag.name)"
-                      :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]"
-                    />
-                  </div>
-                </div>
-
-                <!-- 当前图片标签 -->
-                <div class="current-tags-section">
-                  <h4 class="md-typescale-body-medium">当前标签</h4>
-                  <div class="tags-container">
-                    <span v-if="editablePhoto.tags.length == 0">空</span>
-                    <md-suggestion-chip
-                      v-for="tag in editablePhoto.tags"
-                      :key="tag"
-                      :label="tag"
-                      @click="toggleTagForRemoval(tag)"
-                      :class="[getTagColorClass(tag), { 'tag-marked-for-removal': tagsToRemove.includes(tag), 'tag-selected': !tagsToRemove.includes(tag) }]"
-                    />
-                  </div>
-                </div>
-
-                <!-- 添加新标签 -->
-                <div class="add-tag-section">
-                  <div class="add-tag">
-                    <md-outlined-text-field
-                      :value="newTag"
-                      @input="handleTagInput"
-                      @focus="showTagSuggestions = true"
-                      @blur="handleTagBlur"
-                      label="添加标签"
-                      @keyup.enter="addTag"
-                      ref="tagInput"
-                    >
-                      <md-icon-button
-                        slot="trailing-icon"
-                        @click="addTag"
-                      >
-                        <span class="material-symbols-outlined">add</span>
-                      </md-icon-button>
-                    </md-outlined-text-field>
-                    <div v-if="showTagSuggestions && filteredTags.length > 0" class="tag-suggestions" :class="{ 'fade-out': isTagSuggestionsClosing }" :style="getTagSuggestionsStyle()">
-                      <div
-                        v-for="tag in filteredTags"
-                        :key="tag"
-                        class="suggestion-item"
-                        @click="selectTagSuggestion(tag)"
-                      >
-                        {{ tag }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="info-grid">
-                <div class="folder-field">
-                  <md-outlined-text-field
-                    :value="editablePhoto.folder"
-                    @input="handleFolderInput"
-                    @focus="showFolderSuggestions = true"
-                    @blur="handleFolderBlur"
-                    label="文件夹"
-                    class="info-field"
-                    ref="folderInput"
-                  />
-                  <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions" :class="{ 'fade-out': isFolderSuggestionsClosing }" :style="getFolderSuggestionsStyle()">
-                    <div
-                      v-for="folder in filteredFolders"
-                      :key="folder"
-                      class="suggestion-item"
-                      @click="selectFolderSuggestion(folder)"
-                    >
-                      {{ folder }}
-                    </div>
-                  </div>
-                </div>
-
-                <md-outlined-text-field
-                  v-model="editablePhoto.location"
-                  label="地点"
-                  class="info-field"
-                />
-              </div>
-            </div>
+            <PhotoEditor
+              :editable-photo="editablePhoto"
+              :new-tag="newTag"
+              :tags-to-remove="tagsToRemove"
+              :popular-tags="popularTags"
+              :all-folders="photoStore.allFolders"
+              @update:title="value => editablePhoto.title = value"
+              @update:description="value => editablePhoto.description = value"
+              @update:location="value => editablePhoto.location = value"
+              @update:folder="value => editablePhoto.folder = value"
+              @update:newTag="value => newTag = value"
+              @toggle-tag="toggleTag"
+              @toggle-tag-for-removal="toggleTagForRemoval"
+              @add-tag="addTag"
+            />
           </div>
 
           <div class="dialog-actions">
@@ -165,6 +69,7 @@
 import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 import API_CONFIG from '@/config/api'
+import PhotoEditor from '@/components/PhotoEditor.vue'
 
 const props = defineProps({
   isOpen: {
@@ -198,32 +103,9 @@ const currentImageUrl = ref('')
 // 使用 Pinia store
 const photoStore = usePhotoStore()
 
-// 计算属性 - 过滤文件夹建议
-const filteredFolders = computed(() => {
-  if (!editablePhoto.value.folder) {
-    return photoStore.allFolders.slice(0, 5) // 显示前5个建议
-  }
-
-  const query = editablePhoto.value.folder.toLowerCase()
-  return photoStore.allFolders
-    .filter(folder => folder.toLowerCase().includes(query))
-    .slice(0, 5) // 最多显示5个建议
-})
-
 // 计算属性 - 获取常用标签及其使用次数
 const popularTags = computed(() => {
   return photoStore.tags.sort((a, b) => b.count - a.count)
-})
-
-// 计算属性 - 过滤标签建议
-const filteredTags = computed(() => {
-  if (!newTag.value) {
-    return photoStore.tags.map(x=>x.name).slice(0, 5)
-  }
-
-  const query = newTag.value.toLowerCase()
-  return photoStore.tags
-    .filter(tag => tag.name.toLowerCase().includes(query)).map(x=>x.name)
 })
 
 // 计算当前显示的图片
@@ -292,7 +174,6 @@ const addTag = () => {
   if (newTag.value.trim() && !editablePhoto.value.tags.includes(newTag.value.trim())) {
     editablePhoto.value.tags.push(newTag.value.trim())
     newTag.value = ''
-    showTagSuggestions.value = false
   }
 }
 
@@ -321,82 +202,6 @@ const toggleTag = (tag) => {
     editablePhoto.value.tags = [...currentTags, tag]
   }
 }
-
-const handleTagInput = (e) => {
-  newTag.value = e.target.value
-  showTagSuggestions.value = true
-}
-
-const selectTagSuggestion = (tag) => {
-  newTag.value = tag
-  closeTagSuggestionsWithAnimation()
-}
-
-const handleTagBlur = () => {
-  // 使用 setTimeout 确保点击建议项时不会立即关闭列表
-  setTimeout(() => {
-    closeTagSuggestionsWithAnimation()
-  }, 150)
-}
-
-const closeTagSuggestionsWithAnimation = () => {
-  if (showTagSuggestions.value && !isTagSuggestionsClosing.value) {
-    isTagSuggestionsClosing.value = true
-    setTimeout(() => {
-      showTagSuggestions.value = false
-      isTagSuggestionsClosing.value = false
-    }, 200)
-  }
-}
-
-const handleFolderInput = (e) => {
-  editablePhoto.value.folder = e.target.value
-  showFolderSuggestions.value = true
-}
-
-const selectFolderSuggestion = (folder) => {
-  editablePhoto.value.folder = folder
-  closeFolderSuggestionsWithAnimation()
-}
-
-const handleFolderBlur = () => {
-  // 使用 setTimeout 确保点击建议项时不会立即关闭列表
-  setTimeout(() => {
-    closeFolderSuggestionsWithAnimation()
-  }, 150)
-}
-
-const closeFolderSuggestionsWithAnimation = () => {
-  if (showFolderSuggestions.value && !isFolderSuggestionsClosing.value) {
-    isFolderSuggestionsClosing.value = true
-    setTimeout(() => {
-      showFolderSuggestions.value = false
-      isFolderSuggestionsClosing.value = false
-    }, 200)
-  }
-}
-
-// 点击外部关闭建议列表
-const handleClickOutside = (event) => {
-  // 检查是否点击了建议项
-  const isSuggestionItem = event.target.classList.contains('suggestion-item')
-
-  if (folderInput.value && !folderInput.value.contains(event.target) && !isSuggestionItem) {
-    closeFolderSuggestionsWithAnimation()
-  }
-  if (tagInput.value && !tagInput.value.contains(event.target) && !isSuggestionItem) {
-    closeTagSuggestionsWithAnimation()
-  }
-}
-
-// 添加全局点击事件监听
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
-})
 
 const handleSaveAndNext = async () => {
   if (isSaving.value) return
@@ -464,54 +269,7 @@ const getImageUrl = (photo) => {
   return url
 }
 
-const getTagColorClass = (tag) => {
-  // 预定义一组颜色类名
-  const colorClasses = [
-    'tag-color-art',
-    'tag-color-abstract',
-    'tag-color-color',
-    'tag-color-nature',
-    'tag-color-travel',
-    'tag-color-people',
-    'tag-color-building',
-    'tag-color-design',
-    'tag-color-modern',
-    'tag-color-photo'
-  ]
 
-  // 根据标签字符串生成一个稳定的哈希值
-  let hash = 0
-  for (let i = 0; i < tag.length; i++) {
-    hash = ((hash << 5) - hash) + tag.charCodeAt(i)
-    hash = hash & hash // 转换为32位整数
-  }
-
-  // 使用哈希值选择颜色类名
-  const index = Math.abs(hash) % colorClasses.length
-  return colorClasses[index]
-}
-
-const getTagSuggestionsStyle = () => {
-  if (!tagInput.value) return {}
-
-  const rect = tagInput.value.getBoundingClientRect()
-  return {
-    top: `${rect.bottom + window.scrollY}px`,
-    left: `${rect.left + window.scrollX}px`,
-    width: `${rect.width}px`
-  }
-}
-
-const getFolderSuggestionsStyle = () => {
-  if (!folderInput.value) return {}
-
-  const rect = folderInput.value.getBoundingClientRect()
-  return {
-    top: `${rect.bottom + window.scrollY}px`,
-    left: `${rect.left + window.scrollX}px`,
-    width: `${rect.width}px`
-  }
-}
 
 const toggleOriginalImage = () => {
   if (!currentPhoto.value) return
