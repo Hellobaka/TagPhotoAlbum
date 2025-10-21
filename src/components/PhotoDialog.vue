@@ -25,16 +25,60 @@
 
               <div class="tags-section">
                 <h3 class="md-typescale-title-medium">标签</h3>
-                <div class="tags-container">
-                  <md-suggestion-chip v-for="tag in editablePhoto.tags" :key="tag" :label="tag" @click="removeTag(tag)"
-                    :class="getTagColorClass(tag)" />
+
+                <!-- 常用标签区域 -->
+                <div v-if="popularTags.length > 0" class="popular-tags-section">
+                  <h4 class="md-typescale-body-medium">常用标签</h4>
+                  <div class="popular-tags-container">
+                    <md-suggestion-chip
+                      v-for="tag in popularTags"
+                      :key="tag.name"
+                      :label="`${tag.name} (${tag.count})`"
+                      @click="toggleTag(tag.name)"
+                      :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]"
+                    />
+                  </div>
+                </div>
+
+                <!-- 当前图片标签 -->
+                <div class="current-tags-section">
+                  <h4 class="md-typescale-body-medium">当前标签</h4>
+                  <div class="tags-container">
+                    <md-suggestion-chip
+                      v-for="tag in editablePhoto.tags"
+                      :key="tag"
+                      :label="tag"
+                      @click="removeTag(tag)"
+                      :class="getTagColorClass(tag)"
+                    />
+                  </div>
+                </div>
+
+                <!-- 添加新标签 -->
+                <div class="add-tag-section">
                   <div class="add-tag">
-                    <md-outlined-text-field :value="newTag" @input="e => newTag = e.target.value" label="添加标签"
-                      @keyup.enter="addTag">
+                    <md-outlined-text-field
+                      :value="newTag"
+                      @input="handleTagInput"
+                      @focus="showTagSuggestions = true"
+                      label="添加标签"
+                      @keyup.enter="addTag"
+                      ref="tagInput"
+                    >
                       <md-icon-button slot="trailing-icon" @click="addTag">
                         <span class="material-symbols-outlined">add</span>
                       </md-icon-button>
                     </md-outlined-text-field>
+                    <div v-if="showTagSuggestions && filteredTags.length > 0" class="tag-suggestions">
+                      <div
+                        v-for="tag in filteredTags"
+                        :key="tag"
+                        class="suggestion-item"
+                        @click="selectTagSuggestion(tag)"
+                      >
+                        {{ tag }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -101,6 +145,8 @@ const newTag = ref('')
 const isSaving = ref(false)
 const showFolderSuggestions = ref(false)
 const folderInput = ref(null)
+const showTagSuggestions = ref(false)
+const tagInput = ref(null)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -117,16 +163,50 @@ const filteredFolders = computed(() => {
     .slice(0, 5) // 最多显示5个建议
 })
 
+// 计算属性 - 获取常用标签及其使用次数
+const popularTags = computed(() => {
+  const tagCounts = {}
+
+  // 统计所有照片中标签的使用次数
+  photoStore.photos.forEach(photo => {
+    if (photo.tags) {
+      photo.tags.forEach(tag => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1
+      })
+    }
+  })
+
+  // 转换为数组并排序（按使用次数降序）
+  return Object.entries(tagCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10) // 显示前10个最常用的标签
+})
+
+// 计算属性 - 过滤标签建议
+const filteredTags = computed(() => {
+  if (!newTag.value) {
+    return photoStore.allTags.slice(0, 5) // 显示前5个建议
+  }
+
+  const query = newTag.value.toLowerCase()
+  return photoStore.allTags
+    .filter(tag => tag.toLowerCase().includes(query))
+    .slice(0, 5) // 最多显示5个建议
+})
+
 // 监听选中的照片变化
 watch(() => props.selectedPhoto, (newPhoto) => {
   if (newPhoto) {
     editablePhoto.value = { ...newPhoto }
     newTag.value = ''
     showFolderSuggestions.value = false
+    showTagSuggestions.value = false
   } else {
     editablePhoto.value = {}
     newTag.value = ''
     showFolderSuggestions.value = false
+    showTagSuggestions.value = false
   }
 }, { immediate: true })
 
@@ -139,11 +219,35 @@ const addTag = () => {
   if (newTag.value.trim() && !editablePhoto.value.tags.includes(newTag.value.trim())) {
     editablePhoto.value.tags.push(newTag.value.trim())
     newTag.value = ''
+    showTagSuggestions.value = false
   }
 }
 
 const removeTag = (tag) => {
+  // 不直接删除标签，而是标记为未选中状态
+  // 这里我们保持原有逻辑，但在UI中会显示选中状态
   editablePhoto.value.tags = editablePhoto.value.tags.filter(t => t !== tag)
+}
+
+const toggleTag = (tag) => {
+  const currentTags = editablePhoto.value.tags || []
+  if (currentTags.includes(tag)) {
+    // 如果标签已存在，则移除（标记为未选中）
+    editablePhoto.value.tags = currentTags.filter(t => t !== tag)
+  } else {
+    // 如果标签不存在，则添加
+    editablePhoto.value.tags = [...currentTags, tag]
+  }
+}
+
+const handleTagInput = (e) => {
+  newTag.value = e.target.value
+  showTagSuggestions.value = true
+}
+
+const selectTagSuggestion = (tag) => {
+  newTag.value = tag
+  showTagSuggestions.value = false
 }
 
 const handleFolderInput = (e) => {
@@ -160,6 +264,9 @@ const selectFolderSuggestion = (folder) => {
 const handleClickOutside = (event) => {
   if (folderInput.value && !folderInput.value.contains(event.target)) {
     showFolderSuggestions.value = false
+  }
+  if (tagInput.value && !tagInput.value.contains(event.target)) {
+    showTagSuggestions.value = false
   }
 }
 
@@ -324,8 +431,48 @@ const getTagColorClass = (tag) => {
   margin-top: 8px;
 }
 
+.popular-tags-section {
+  margin-bottom: 16px;
+}
+
+.popular-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.current-tags-section {
+  margin-bottom: 16px;
+}
+
+.add-tag-section {
+  margin-top: 16px;
+}
+
 .add-tag {
   width: 100%;
+  position: relative;
+}
+
+.tag-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  box-shadow: var(--md-sys-elevation-level2);
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.tag-selected {
+  background-color: var(--md-sys-color-primary-container) !important;
+  color: var(--md-sys-color-on-primary-container) !important;
 }
 
 .info-grid {

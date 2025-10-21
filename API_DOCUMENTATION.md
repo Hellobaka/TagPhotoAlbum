@@ -13,7 +13,7 @@
 
 ## 认证接口
 
-### 用户登录
+### 用户登录（传统方式 - 向后兼容）
 
 **POST** `/auth/login`
 
@@ -35,6 +35,84 @@
     "email": "string"
   },
   "token": "jwt_token_string"
+}
+```
+
+**安全说明：**
+- 此接口使用明文密码传输，建议使用安全登录接口
+- 仅用于向后兼容，新应用应使用安全登录接口
+
+### 安全用户登录（推荐使用）
+
+**POST** `/auth/secure-login`
+
+**安全特性：**
+- HMAC-SHA256 签名验证
+- 时间戳防重放攻击
+- Nonce 防重放攻击
+- 前端密码哈希
+
+请求体：
+```json
+{
+  "username": "string",
+  "passwordHash": "string",
+  "timestamp": "number",
+  "nonce": "string",
+  "signature": "string"
+}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "user": {
+    "username": "string",
+    "name": "string",
+    "email": "string"
+  },
+  "token": "jwt_token_string",
+  "serverTimestamp": "number",
+  "nextNonceSeed": "string"
+}
+```
+
+**前端实现步骤：**
+1. 获取当前时间戳和生成随机nonce
+2. 使用bcrypt对密码进行哈希
+3. 构建签名载荷：`username:passwordHash:timestamp:nonce`
+4. 使用HMAC-SHA256计算签名
+5. 发送包含所有字段的请求
+
+### 获取Nonce种子
+
+**GET** `/auth/nonce-seed`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "random_nonce_seed_string"
+}
+```
+
+### 验证令牌有效性
+
+**GET** `/auth/validate-token`
+
+请求头：
+```
+Authorization: Bearer {jwt_token}
+```
+
+响应：
+```json
+{
+  "success": true,
+  "data": {
+    "message": "令牌有效"
+  }
 }
 ```
 
@@ -288,6 +366,11 @@ photoApi.getPhotosPaginated(1, 20, {
 
 **GET** `/photos/recommend`
 
+查询参数：
+- `page` (可选): 页码，默认 1
+- `limit` (可选): 每页数量，默认 20
+- `excludeIds` (可选): 排除的照片ID列表，用逗号分隔
+
 响应：
 ```json
 {
@@ -303,14 +386,29 @@ photoApi.getPhotosPaginated(1, 20, {
       "location": "string",
       "date": "string"
     }
-  ]
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "pages": 5
+  }
 }
 ```
 
 **前端使用说明：**
-- 推荐页面独立加载，不参与懒加载
-- 每次切换到推荐页面都会重新获取数据
-- 支持刷新功能获取新的推荐
+- 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片
+- 使用 `excludeIds` 参数避免重复显示已加载的照片
+- 每次请求返回随机推荐的艺术类照片（文件夹为"艺术"或标签包含"艺术"、"抽象"）
+
+**使用示例：**
+```javascript
+// 加载第一页推荐照片
+GET /api/photos/recommend?page=1&limit=20
+
+// 加载第二页，排除已显示的ID为1,2,3的照片
+GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
+```
 
 ### 上传图片
 
@@ -404,7 +502,10 @@ photoApi.getPhotosPaginated(1, 20, {
    - 请求/响应拦截器
 
 2. **API 方法**
-   - `login(credentials)`: 用户登录
+   - `login(credentials)`: 用户登录（传统方式）
+   - `secureLogin(secureCredentials)`: 安全用户登录（推荐使用）
+   - `getNonceSeed()`: 获取nonce种子
+   - `validateToken()`: 验证令牌有效性
    - `getPhotos(params)`: 获取照片列表
    - `getPhotosPaginated(page, limit)`: 分页获取照片列表（用于懒加载）
    - `getPhoto(id)`: 获取单个照片
@@ -415,7 +516,7 @@ photoApi.getPhotosPaginated(1, 20, {
    - `getFolders()`: 获取所有文件夹
    - `getLocations()`: 获取所有地点
    - `searchPhotos(query)`: 搜索照片
-   - `getRecommendPhotos()`: 获取推荐照片
+   - `getRecommendPhotos(page, limit, excludeIds)`: 获取推荐照片（支持分页和去重）
    - `uploadPhotos(formData)`: 上传图片（支持多文件）
    - `getUncategorizedPhotos()`: 获取未分类照片
 
@@ -493,12 +594,21 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 
 ## 新功能说明
 
+### 安全增强
+
+- **安全登录**: 新增安全登录接口，使用HMAC-SHA256签名验证
+- **防重放攻击**: 时间戳 + nonce 机制防止请求重放
+- **密码安全**: 前端bcrypt哈希 + 后端验证，避免明文传输
+- **请求完整性**: HMAC签名确保请求数据完整性
+- **时效性控制**: 5分钟请求有效期，防止过期请求
+
 ### 懒加载优化
 
 - **分页加载**: 标签、文件夹、地点页面使用分页加载，首次只加载20张照片
 - **滚动加载**: 使用 Intersection Observer 监听滚动，自动加载下一页
 - **按需加载**: 侧边栏筛选数据按需加载，减少初始请求
 - **状态管理**: 支持加载中状态、没有更多数据提示
+- **推荐照片懒加载**: 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
 
 ### 刷新功能
 
@@ -524,6 +634,19 @@ VITE_API_BASE_URL=http://your-api-server.com/api
   - 下一张: 跳过当前图片，不保存分类
   - 关闭: 退出分类流程
 
+## 安全最佳实践
+
+### 认证安全
+- **推荐使用安全登录接口** (`/auth/secure-login`) 代替传统登录
+- **前端实现**: 使用bcrypt哈希密码，HMAC-SHA256计算签名
+- **时间同步**: 使用服务器返回的时间戳进行时间同步
+- **Nonce管理**: 确保每个nonce只使用一次
+
+### 传输安全
+- **强制HTTPS**: 生产环境必须启用HTTPS
+- **请求签名**: 所有敏感请求应包含HMAC签名
+- **时效控制**: 请求应在5分钟内完成处理
+
 ## 注意事项
 
 1. 所有 API 请求都需要在请求头中包含认证 Token
@@ -533,5 +656,6 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 5. 拖拽上传功能需要浏览器支持 File API 和 Directory API
 6. 分类对话框支持批量操作，提高分类效率
 7. 懒加载功能需要浏览器支持 Intersection Observer API
-8. 推荐和未分类页面独立加载，不参与懒加载
+8. 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
 9. 筛选数据按需加载，减少初始请求数量
+10. **安全要求**: 生产环境必须配置HTTPS和安全密钥

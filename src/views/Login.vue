@@ -38,12 +38,6 @@
           <span v-else>登录</span>
         </md-filled-button>
       </form>
-
-      <!-- 错误提示 -->
-      <div v-if="error" class="error-message">
-        <span class="material-symbols-outlined error-icon">error</span>
-        <span>{{ error }}</span>
-      </div>
     </div>
   </div>
 </template>
@@ -64,7 +58,7 @@ const error = ref('')
 
 // 登录处理
 const handleLogin = async () => {
-  console.log('Login attempt:', { username: username.value, password: password.value })
+  console.log('Login attempt:', { username: username.value })
 
   isLoading.value = true
   error.value = ''

@@ -58,7 +58,7 @@ api.interceptors.response.use(
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       } else {
-        return Promise.resolve({ success: false })
+        //return Promise.resolve({ success: false })
       }
     } else {
       // 显示错误消息到SnackBar
@@ -75,9 +75,19 @@ api.interceptors.response.use(
 )
 
 export const photoApi = {
-  // 用户认证
-  login(credentials) {
-    return api.post('/auth/login', credentials)
+  // 安全用户登录
+  login(secureCredentials) {
+    return api.post('/auth/login', secureCredentials)
+  },
+
+  // 获取nonce种子
+  getNonceSeed() {
+    return api.get('/auth/nonce-seed')
+  },
+
+  // 验证令牌有效性
+  validateToken() {
+    return api.get('/auth/validate-token')
   },
 
   // 获取照片列表
@@ -149,9 +159,18 @@ export const photoApi = {
     return api.get('/search', { params: { q: query } })
   },
 
-  // 获取推荐照片
-  getRecommendPhotos() {
-    return api.get('/photos/recommend')
+  // 获取推荐照片（支持分页和去重）
+  getRecommendPhotos(page = 1, limit = 20, excludeIds = []) {
+    const params = {
+      page,
+      limit
+    }
+
+    if (excludeIds && excludeIds.length > 0) {
+      params.excludeIds = excludeIds.join(',')
+    }
+
+    return api.get('/photos/recommend', { params })
   },
 
   // 上传图片
