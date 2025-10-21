@@ -16,7 +16,7 @@
         class="masonry-item"
         @click="openPhotoDetail(photo)"
       >
-        <img :src="getImageUrl(photo.url)" :alt="photo.title" />
+        <img :src="getImageUrl(photo.filePath)" :alt="photo.title" />
         <div class="photo-overlay">
           <div class="photo-info">
             <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
@@ -157,7 +157,7 @@ const getImageUrl = (url) => {
   }
 
   // 如果是相对路径，拼接后端 API 地址
-  if (url.startsWith('/uploads/')) {
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
     return `${API_CONFIG.BASE_URL}${url}`
   }
 

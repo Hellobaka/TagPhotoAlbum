@@ -16,7 +16,7 @@
             <div class="photo-container">
               <img
                 v-if="currentPhoto"
-                :src="getImageUrl(currentPhoto.url)"
+                :src="getImageUrl(currentPhoto.filePath)"
                 :alt="currentPhoto.title"
               />
               <div v-else class="no-photo">
@@ -253,7 +253,7 @@ const getImageUrl = (url) => {
   }
 
   // 如果是相对路径，拼接后端 API 地址
-  if (url.startsWith('/uploads/')) {
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
     return `${API_CONFIG.BASE_URL}${url}`
   }
 

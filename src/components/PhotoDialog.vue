@@ -12,7 +12,7 @@
 
           <div class="dialog-content">
             <div class="photo-container">
-              <img :src="getImageUrl(selectedPhoto.url)" :alt="selectedPhoto.title" />
+              <img :src="getImageUrl(selectedPhoto.filePath)" :alt="selectedPhoto.title" />
             </div>
 
             <div class="info-section">
@@ -304,7 +304,7 @@ const getImageUrl = (url) => {
   }
 
   // 如果是相对路径，拼接后端 API 地址
-  if (url.startsWith('/uploads/')) {
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
     return `${API_CONFIG.BASE_URL}${url}`
   }
 
@@ -468,6 +468,7 @@ const getTagColorClass = (tag) => {
   max-height: 200px;
   overflow-y: auto;
   margin-top: 4px;
+  overflow: hidden;
 }
 
 .tag-selected {
@@ -498,6 +499,7 @@ const getTagColorClass = (tag) => {
   max-height: 200px;
   overflow-y: auto;
   margin-top: 4px;
+  overflow: hidden;
 }
 
 .suggestion-item {
@@ -505,6 +507,9 @@ const getTagColorClass = (tag) => {
   cursor: pointer;
   transition: background-color 0.2s;
   font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .suggestion-item:hover {
