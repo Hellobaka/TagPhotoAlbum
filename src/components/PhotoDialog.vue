@@ -11,8 +11,17 @@
           </div>
 
           <div class="dialog-content">
-            <div class="photo-container">
-              <img :src="getImageUrl(selectedPhoto.filePath)" :alt="selectedPhoto.title" />
+            <div class="photo-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
+              <img :src="currentImageUrl" :alt="selectedPhoto.title" />
+              <div class="original-image-button" :class="{ 'show': showOriginalButton && selectedPhoto?.compressedFilePath && !isShowingOriginal }">
+                <md-filled-tonal-button
+                  @click="toggleOriginalImage"
+                  style="padding-left: 15px; padding-right: 15px;"
+                >
+                  <md-icon slot="icon">open_in_full</md-icon>
+                  显示原图
+                </md-filled-tonal-button>
+              </div>
             </div>
 
             <div class="info-section">
@@ -155,6 +164,9 @@ const tagInput = ref(null)
 const tagsToRemove = ref([])
 const isTagSuggestionsClosing = ref(false)
 const isFolderSuggestionsClosing = ref(false)
+const showOriginalButton = ref(false)
+const isShowingOriginal = ref(false)
+const currentImageUrl = ref('')
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -198,6 +210,10 @@ watch(() => props.selectedPhoto, (newPhoto) => {
     tagsToRemove.value = []
     isTagSuggestionsClosing.value = false
     isFolderSuggestionsClosing.value = false
+    isShowingOriginal.value = false
+    showOriginalButton.value = false
+    // 初始化图片URL
+    currentImageUrl.value = getImageUrl(newPhoto)
   } else {
     editablePhoto.value = {}
     newTag.value = ''
@@ -206,6 +222,9 @@ watch(() => props.selectedPhoto, (newPhoto) => {
     tagsToRemove.value = []
     isTagSuggestionsClosing.value = false
     isFolderSuggestionsClosing.value = false
+    isShowingOriginal.value = false
+    showOriginalButton.value = false
+    currentImageUrl.value = ''
   }
 }, { immediate: true })
 
@@ -395,7 +414,12 @@ const refreshCurrentViewData = async () => {
   }
 }
 
-const getImageUrl = (url) => {
+const getImageUrl = (photo) => {
+  if (!photo) return ''
+
+  // 优先使用压缩图片路径
+  let url = photo.compressedFilePath || photo.filePath
+
   if (!url) return ''
 
   // 如果已经是完整 URL，直接返回
@@ -432,6 +456,49 @@ const getFolderSuggestionsStyle = () => {
     left: `${rect.left + window.scrollX}px`,
     width: `${rect.width}px`
   }
+}
+
+const toggleOriginalImage = () => {
+  if (!props.selectedPhoto) return
+
+  if (isShowingOriginal.value) {
+    // 切换回压缩图
+    currentImageUrl.value = getImageUrl(props.selectedPhoto)
+    isShowingOriginal.value = false
+  } else {
+    // 切换到原图
+    currentImageUrl.value = getOriginalImageUrl(props.selectedPhoto)
+    isShowingOriginal.value = true
+  }
+}
+
+const getOriginalImageUrl = (photo) => {
+  if (!photo) return ''
+
+  let url = photo.filePath
+
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
+}
+
+const handleMouseEnter = () => {
+  showOriginalButton.value = true
+}
+
+const handleMouseLeave = () => {
+  showOriginalButton.value = false
 }
 
 const getTagColorClass = (tag) => {
@@ -520,6 +587,7 @@ const getTagColorClass = (tag) => {
   justify-content: center;
   min-height: 400px;
   margin-top: 10px;
+  position: relative;
 }
 
 .photo-container img {
@@ -527,6 +595,22 @@ const getTagColorClass = (tag) => {
   max-height: 100%;
   object-fit: contain;
 }
+
+.original-image-button {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.original-image-button.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 
 .info-section {
   flex: 1;
@@ -588,6 +672,13 @@ const getTagColorClass = (tag) => {
   overflow-y: auto;
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.tag-suggestions:not(.fade-out) {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .tag-suggestions.fade-out {
@@ -628,6 +719,13 @@ const getTagColorClass = (tag) => {
   overflow-y: auto;
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.folder-suggestions:not(.fade-out) {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .folder-suggestions.fade-out {

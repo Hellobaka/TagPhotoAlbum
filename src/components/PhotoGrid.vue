@@ -16,7 +16,7 @@
         class="masonry-item"
         @click="openPhotoDetail(photo)"
       >
-        <img :src="getImageUrl(photo.filePath)" :alt="photo.title" />
+        <img :src="getImageUrl(photo)" :alt="photo.title" />
         <div class="photo-overlay">
           <div class="photo-info">
             <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
@@ -148,7 +148,12 @@ const openPhotoDetail = (photo) => {
   emit('open-photo-detail', photo)
 }
 
-const getImageUrl = (url) => {
+const getImageUrl = (photo) => {
+  if (!photo) return ''
+
+  // 优先使用压缩图片路径
+  let url = photo.compressedFilePath || photo.filePath
+
   if (!url) return ''
 
   // 如果已经是完整 URL，直接返回

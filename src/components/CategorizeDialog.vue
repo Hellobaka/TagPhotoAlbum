@@ -16,7 +16,7 @@
             <div class="photo-container">
               <img
                 v-if="currentPhoto"
-                :src="getImageUrl(currentPhoto.filePath)"
+                :src="getImageUrl(currentPhoto)"
                 :alt="currentPhoto.title"
               />
               <div v-else class="no-photo">
@@ -423,7 +423,12 @@ const goToNext = () => {
   }
 }
 
-const getImageUrl = (url) => {
+const getImageUrl = (photo) => {
+  if (!photo) return ''
+
+  // 优先使用压缩图片路径
+  let url = photo.compressedFilePath || photo.filePath
+
   if (!url) return ''
 
   // 如果已经是完整 URL，直接返回
@@ -650,6 +655,13 @@ const getFolderSuggestionsStyle = () => {
   overflow-y: auto;
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.tag-suggestions:not(.fade-out) {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .tag-suggestions.fade-out {
@@ -668,6 +680,13 @@ const getFolderSuggestionsStyle = () => {
   overflow-y: auto;
   overflow: hidden;
   transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.folder-suggestions:not(.fade-out) {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .folder-suggestions.fade-out {

@@ -128,7 +128,7 @@ Authorization: Bearer {jwt_token}
 - `folder` (可选): 按文件夹筛选
 - `location` (可选): 按地点筛选
 - `tags` (可选): 按标签筛选，多个标签用逗号分隔
-- `q` (可选): 搜索关键词
+- `searchQuery` (可选): 搜索关键词
 
 响应：
 ```json
@@ -137,13 +137,15 @@ Authorization: Bearer {jwt_token}
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
       "folder": "string",
       "location": "string",
-      "date": "string"
+      "date": "string",
+      "compressedFilePath": "string",
+      "hasCompressedImage": "boolean"
     }
   ],
   "pagination": {
@@ -159,6 +161,7 @@ Authorization: Bearer {jwt_token}
 - 标签、文件夹、地点页面使用分页加载，首次加载第1页（20张照片）
 - 滚动到底部时自动加载下一页
 - 支持懒加载，减少初始加载时间
+- 所有照片响应包含压缩图片信息，客户端可根据网络状况选择加载原图或压缩图
 
 ### 分页获取照片列表（前端专用）
 
@@ -195,6 +198,7 @@ photoApi.getPhotosPaginated(1, 20, {
 - 自动将标签数组转换为逗号分隔的字符串
 - 支持组合筛选条件
 - 主要用于标签、文件夹、地点页面的懒加载功能
+- 所有返回的照片数据包含压缩图片信息，便于客户端优化加载
 
 ### 获取单个照片
 
@@ -206,13 +210,15 @@ photoApi.getPhotosPaginated(1, 20, {
   "success": true,
   "data": {
     "id": "number",
-    "url": "string",
+    "filePath": "string",
     "title": "string",
     "description": "string",
     "tags": ["string"],
     "folder": "string",
     "location": "string",
-    "date": "string"
+    "date": "string",
+    "compressedFilePath": "string",
+    "hasCompressedImage": "boolean"
   }
 }
 ```
@@ -224,13 +230,12 @@ photoApi.getPhotosPaginated(1, 20, {
 请求体：
 ```json
 {
-  "url": "string",
+  "filePath": "string",
   "title": "string",
   "description": "string",
   "tags": ["string"],
   "folder": "string",
-  "location": "string",
-  "date": "string"
+  "location": "string"
 }
 ```
 
@@ -240,13 +245,15 @@ photoApi.getPhotosPaginated(1, 20, {
   "success": true,
   "data": {
     "id": "number",
-    "url": "string",
+    "filePath": "string",
     "title": "string",
     "description": "string",
     "tags": ["string"],
     "folder": "string",
     "location": "string",
-    "date": "string"
+    "date": "string",
+    "compressedFilePath": "string",
+    "hasCompressedImage": "boolean"
   }
 }
 ```
@@ -272,13 +279,15 @@ photoApi.getPhotosPaginated(1, 20, {
   "success": true,
   "data": {
     "id": "number",
-    "url": "string",
+    "filePath": "string",
     "title": "string",
     "description": "string",
     "tags": ["string"],
     "folder": "string",
     "location": "string",
-    "date": "string"
+    "date": "string",
+    "compressedFilePath": "string",
+    "hasCompressedImage": "boolean"
   }
 }
 ```
@@ -297,7 +306,7 @@ photoApi.getPhotosPaginated(1, 20, {
 
 ## 元数据接口
 
-### 获取所有标签
+### 获取所有标签（包含使用次数）
 
 **GET** `/metadata/tags`
 
@@ -305,7 +314,15 @@ photoApi.getPhotosPaginated(1, 20, {
 ```json
 {
   "success": true,
-  "data": ["string"]
+  "data": {
+    "tags": [
+      {
+        "name": "string",
+        "count": "number"
+      }
+    ],
+    "totalCount": "number"
+  }
 }
 ```
 
@@ -321,6 +338,17 @@ photoApi.getPhotosPaginated(1, 20, {
 }
 ```
 
+### 获取文件夹数量
+
+**GET** `/metadata/folders/count`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "number"
+}
+```
 
 ### 获取所有地点
 
@@ -331,6 +359,18 @@ photoApi.getPhotosPaginated(1, 20, {
 {
   "success": true,
   "data": ["string"]
+}
+```
+
+### 获取地点数量
+
+**GET** `/metadata/locations/count`
+
+响应：
+```json
+{
+  "success": true,
+  "data": "number"
 }
 ```
 
@@ -350,7 +390,7 @@ photoApi.getPhotosPaginated(1, 20, {
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -367,7 +407,6 @@ photoApi.getPhotosPaginated(1, 20, {
 **GET** `/photos/recommend`
 
 查询参数：
-- `page` (可选): 页码，默认 1
 - `limit` (可选): 每页数量，默认 20
 - `excludeIds` (可选): 排除的照片ID列表，用逗号分隔
 
@@ -378,21 +417,17 @@ photoApi.getPhotosPaginated(1, 20, {
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
       "folder": "string",
       "location": "string",
-      "date": "string"
+      "date": "string",
+      "compressedFilePath": "string",
+      "hasCompressedImage": "boolean"
     }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "pages": 5
-  }
+  ]
 }
 ```
 
@@ -400,14 +435,15 @@ photoApi.getPhotosPaginated(1, 20, {
 - 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片
 - 使用 `excludeIds` 参数避免重复显示已加载的照片
 - 每次请求返回随机推荐的艺术类照片（文件夹为"艺术"或标签包含"艺术"、"抽象"）
+- 推荐照片同样包含压缩图片信息，优化加载体验
 
 **使用示例：**
 ```javascript
-// 加载第一页推荐照片
-GET /api/photos/recommend?page=1&limit=20
+// 加载任意推荐照片
+GET /api/photos/recommend?limit=20
 
-// 加载第二页，排除已显示的ID为1,2,3的照片
-GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
+// 加载新的数据但是排除已显示的ID为1,2,3的照片
+GET /api/photos/recommend?excludeIds=1,2,3
 ```
 
 ### 上传图片
@@ -427,7 +463,7 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -451,7 +487,7 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
   "data": [
     {
       "id": "number",
-      "url": "string",
+      "filePath": "string",
       "title": "string",
       "description": "string",
       "tags": ["string"],
@@ -467,6 +503,7 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
 - 未分类页面独立加载，不参与懒加载
 - 每次切换到未分类页面都会重新获取数据
 - 支持批量分类操作
+- 未分类照片同样包含压缩图片信息，便于快速预览
 
 ## 错误处理
 
@@ -512,9 +549,11 @@ GET /api/photos/recommend?page=2&limit=20&excludeIds=1,2,3
    - `createPhoto(photoData)`: 创建照片
    - `updatePhoto(id, photoData)`: 更新照片
    - `deletePhoto(id)`: 删除照片
-   - `getTags()`: 获取所有标签
+   - `getTags()`: 获取所有标签（包含使用次数）
    - `getFolders()`: 获取所有文件夹
+   - `getFoldersCount()`: 获取文件夹数量
    - `getLocations()`: 获取所有地点
+   - `getLocationsCount()`: 获取地点数量
    - `searchPhotos(query)`: 搜索照片
    - `getRecommendPhotos(page, limit, excludeIds)`: 获取推荐照片（支持分页和去重）
    - `uploadPhotos(formData)`: 上传图片（支持多文件）
@@ -594,6 +633,14 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 
 ## 新功能说明
 
+### 图片压缩功能
+
+- **自动压缩**: 图片上传时自动生成压缩版本，减轻网络负担
+- **智能尺寸**: 最大宽度1024px，最大高度768px，保持宽高比
+- **质量优化**: 可配置压缩质量（默认80%），使用ImageMagick高质量压缩算法
+- **文件组织**: 压缩图片存储在`compressed`文件夹中，保持与原文件相同的目录结构
+- **格式支持**: 支持JPG、JPEG、PNG、BMP、WebP、GIF、TIFF等格式
+
 ### 安全增强
 
 - **安全登录**: 新增安全登录接口，使用HMAC-SHA256签名验证
@@ -623,6 +670,7 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 - **文件类型**: JPG、JPEG、PNG、GIF、BMP、WebP、SVG
 - **进度显示**: 实时上传进度条
 - **结果反馈**: 成功/失败状态通知
+- **自动压缩**: 上传时自动生成压缩版本，减轻网络负担
 
 ### 未分类照片管理
 
@@ -658,4 +706,6 @@ VITE_API_BASE_URL=http://your-api-server.com/api
 7. 懒加载功能需要浏览器支持 Intersection Observer API
 8. 推荐页面现在支持分页懒加载，可以滚动加载更多推荐照片，避免重复显示
 9. 筛选数据按需加载，减少初始请求数量
-10. **安全要求**: 生产环境必须配置HTTPS和安全密钥
+10. **图片压缩**: 上传图片时自动生成压缩版本，客户端可根据网络状况选择加载原图或压缩图
+11. **压缩配置**: 压缩质量可在 `appsettings.json` 中配置，默认80%
+12. **安全要求**: 生产环境必须配置HTTPS和安全密钥
