@@ -20,6 +20,10 @@
         <div class="photo-overlay">
           <div class="photo-info">
             <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
+            <div class="photo-meta">
+              <span class="meta-item">{{ formatDate(photo.date) }}</span>
+              <span class="meta-item">{{ formatFileSize(photo.fileSizeKB) }}</span>
+            </div>
             <div class="tags">
               <md-assist-chip
                 v-for="tag in photo.tags.slice(0, 2)"
@@ -27,6 +31,7 @@
                 :label="tag"
                 size="small"
                 :class="getTagColorClass(tag)"
+                @click="handleTagClick(tag, $event)"
               />
               <md-assist-chip
                 v-if="photo.tags.length > 2"
@@ -88,7 +93,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['open-photo-detail', 'load-more'])
+const emit = defineEmits(['open-photo-detail', 'load-more', 'tag-click'])
 
 const gridContainer = ref(null)
 let observer = null
@@ -146,6 +151,43 @@ const loadingText = computed(() => {
 // 方法
 const openPhotoDetail = (photo) => {
   emit('open-photo-detail', photo)
+}
+
+const handleTagClick = (tag, event) => {
+  // 阻止事件冒泡，避免触发图片点击事件
+  event.stopPropagation()
+  // 发射 tag-click 事件
+  emit('tag-click', tag)
+}
+
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch {
+    return dateString
+  }
+}
+
+// 格式化文件大小
+const formatFileSize = (fileSizeKB) => {
+  if (!fileSizeKB) return ''
+
+  if (fileSizeKB < 1024) {
+    return `${fileSizeKB} KB`
+  } else {
+    const fileSizeMB = (fileSizeKB / 1024).toFixed(1)
+    return `${fileSizeMB} MB`
+  }
 }
 
 const getImageUrl = (photo) => {
@@ -266,8 +308,19 @@ const getTagColorClass = (tag) => {
 }
 
 .photo-info h4 {
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
   font-weight: 500;
+}
+
+.photo-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.meta-item {
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 .tags {

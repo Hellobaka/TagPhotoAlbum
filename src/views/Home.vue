@@ -130,6 +130,7 @@
           :has-more="photoStore.hasMore"
           @open-photo-detail="openPhotoDetail"
           @load-more="handleLoadMore"
+          @tag-click="handleTagClickFromGrid"
         />
       </div>
     </div>
@@ -425,6 +426,17 @@ const handleSaveAndNext = async (photoData) => {
 
 const handleNext = () => {
   // 直接进入下一张，不保存当前图片
+}
+
+// 处理从PhotoGrid中点击标签的事件
+const handleTagClickFromGrid = async (tag) => {
+  // 将点击的标签添加到筛选条件中
+  const index = selectedTags.value.indexOf(tag)
+  if (index === -1) {
+    selectedTags.value.push(tag)
+    // 应用筛选
+    await applyFilters()
+  }
 }
 
 // 懒加载更多照片
