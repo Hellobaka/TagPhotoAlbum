@@ -42,19 +42,48 @@
 
               <div class="tags-section">
                 <h3 class="md-typescale-title-medium">标签</h3>
-                <div class="tags-container">
-                  <md-suggestion-chip
-                    v-for="tag in editablePhoto.tags"
-                    :key="tag"
-                    :label="tag"
-                    @click="removeTag(tag)"
-                    :class="getTagColorClass(tag)"
-                  />
+
+                <!-- 常用标签区域 -->
+                <div class="popular-tags-section">
+                  <h4 class="md-typescale-body-medium">常用标签</h4>
+                  <div class="popular-tags-container">
+                    <span v-if="popularTags.length == 0">空</span>
+                    <md-suggestion-chip
+                      v-for="tag in popularTags"
+                      :key="tag"
+                      :label="`${tag.name} (${tag.count})`"
+                      @click="toggleTag(tag.name)"
+                      :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]"
+                    />
+                  </div>
+                </div>
+
+                <!-- 当前图片标签 -->
+                <div class="current-tags-section">
+                  <h4 class="md-typescale-body-medium">当前标签</h4>
+                  <div class="tags-container">
+                    <span v-if="editablePhoto.tags.length == 0">空</span>
+                    <md-suggestion-chip
+                      v-for="tag in editablePhoto.tags"
+                      :key="tag"
+                      :label="tag"
+                      @click="toggleTagForRemoval(tag)"
+                      :class="[getTagColorClass(tag), { 'tag-marked-for-removal': tagsToRemove.includes(tag), 'tag-selected': !tagsToRemove.includes(tag) }]"
+                    />
+                  </div>
+                </div>
+
+                <!-- 添加新标签 -->
+                <div class="add-tag-section">
                   <div class="add-tag">
                     <md-outlined-text-field
-                      v-model="newTag"
+                      :value="newTag"
+                      @input="handleTagInput"
+                      @focus="showTagSuggestions = true"
+                      @blur="handleTagBlur"
                       label="添加标签"
                       @keyup.enter="addTag"
+                      ref="tagInput"
                     >
                       <md-icon-button
                         slot="trailing-icon"
@@ -63,6 +92,16 @@
                         <span class="material-symbols-outlined">add</span>
                       </md-icon-button>
                     </md-outlined-text-field>
+                    <div v-if="showTagSuggestions && filteredTags.length > 0" class="tag-suggestions" :class="{ 'fade-out': isTagSuggestionsClosing }" :style="getTagSuggestionsStyle()">
+                      <div
+                        v-for="tag in filteredTags"
+                        :key="tag"
+                        class="suggestion-item"
+                        @click="selectTagSuggestion(tag)"
+                      >
+                        {{ tag }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -70,13 +109,15 @@
               <div class="info-grid">
                 <div class="folder-field">
                   <md-outlined-text-field
-                    v-model="editablePhoto.folder"
+                    :value="editablePhoto.folder"
+                    @input="handleFolderInput"
                     @focus="showFolderSuggestions = true"
+                    @blur="handleFolderBlur"
                     label="文件夹"
                     class="info-field"
                     ref="folderInput"
                   />
-                  <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions">
+                  <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions" :class="{ 'fade-out': isFolderSuggestionsClosing }" :style="getFolderSuggestionsStyle()">
                     <div
                       v-for="folder in filteredFolders"
                       :key="folder"
@@ -136,6 +177,11 @@ const newTag = ref('')
 const isSaving = ref(false)
 const showFolderSuggestions = ref(false)
 const folderInput = ref(null)
+const showTagSuggestions = ref(false)
+const tagInput = ref(null)
+const isTagSuggestionsClosing = ref(false)
+const isFolderSuggestionsClosing = ref(false)
+const tagsToRemove = ref([])
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -152,8 +198,28 @@ const filteredFolders = computed(() => {
     .slice(0, 5) // 最多显示5个建议
 })
 
+// 计算属性 - 获取常用标签及其使用次数
+const popularTags = computed(() => {
+  return photoStore.tags.sort((a, b) => b.count - a.count)
+})
+
+// 计算属性 - 过滤标签建议
+const filteredTags = computed(() => {
+  if (!newTag.value) {
+    return photoStore.tags.map(x=>x.name).slice(0, 5)
+  }
+
+  const query = newTag.value.toLowerCase()
+  return photoStore.tags
+    .filter(tag => tag.name.toLowerCase().includes(query)).map(x=>x.name)
+})
+
 // 计算当前显示的图片
 const currentPhoto = computed(() => {
+  // 如果store中有当前分类的照片，优先使用
+  if (photoStore.currentCategorizePhoto) {
+    return photoStore.currentCategorizePhoto
+  }
   return props.uncategorizedPhotos[currentIndex.value] || null
 })
 
@@ -163,18 +229,38 @@ watch(currentPhoto, (newPhoto) => {
     editablePhoto.value = { ...newPhoto }
     newTag.value = ''
     showFolderSuggestions.value = false
+    showTagSuggestions.value = false
+    isTagSuggestionsClosing.value = false
+    isFolderSuggestionsClosing.value = false
+    tagsToRemove.value = []
   } else {
     editablePhoto.value = {}
     newTag.value = ''
     showFolderSuggestions.value = false
+    showTagSuggestions.value = false
+    isTagSuggestionsClosing.value = false
+    isFolderSuggestionsClosing.value = false
+    tagsToRemove.value = []
   }
 }, { immediate: true })
 
 // 监听对话框打开状态
 watch(() => props.isOpen, (newValue) => {
   if (newValue) {
-    // 对话框打开时重置到第一张图片
-    currentIndex.value = 0
+    // 如果有当前分类的照片，重置索引
+    if (photoStore.currentCategorizePhoto) {
+      // 找到当前照片在未分类列表中的索引
+      const index = props.uncategorizedPhotos.findIndex(
+        photo => photo.id === photoStore.currentCategorizePhoto.id
+      )
+      currentIndex.value = index >= 0 ? index : 0
+    } else {
+      // 重置到第一张图片
+      currentIndex.value = 0
+    }
+  } else {
+    // 关闭对话框时清除当前分类照片
+    photoStore.currentCategorizePhoto = null
   }
 })
 
@@ -187,22 +273,100 @@ const addTag = () => {
   if (newTag.value.trim() && !editablePhoto.value.tags.includes(newTag.value.trim())) {
     editablePhoto.value.tags.push(newTag.value.trim())
     newTag.value = ''
+    showTagSuggestions.value = false
   }
 }
 
-const removeTag = (tag) => {
-  editablePhoto.value.tags = editablePhoto.value.tags.filter(t => t !== tag)
+const toggleTagForRemoval = (tag) => {
+  const index = tagsToRemove.value.indexOf(tag)
+  if (index > -1) {
+    // 如果标签已经在待删除列表中，则移除
+    tagsToRemove.value.splice(index, 1)
+  } else {
+    // 如果标签不在待删除列表中，则添加
+    tagsToRemove.value.push(tag)
+  }
+}
+
+const toggleTag = (tag) => {
+  const currentTags = editablePhoto.value.tags.filter(tag => !tagsToRemove.value.includes(tag)) || []
+  if (currentTags.includes(tag)) {
+    tagsToRemove.value.push(tag)
+  } else if(tagsToRemove.value.includes(tag)) {
+    const index = tagsToRemove.value.indexOf(tag)
+    if (index > -1) {
+      tagsToRemove.value.splice(index, 1)
+    }
+  } else {
+    // 如果标签不存在，则添加
+    editablePhoto.value.tags = [...currentTags, tag]
+  }
+}
+
+const handleTagInput = (e) => {
+  newTag.value = e.target.value
+  showTagSuggestions.value = true
+}
+
+const selectTagSuggestion = (tag) => {
+  newTag.value = tag
+  closeTagSuggestionsWithAnimation()
+}
+
+const handleTagBlur = () => {
+  // 使用 setTimeout 确保点击建议项时不会立即关闭列表
+  setTimeout(() => {
+    closeTagSuggestionsWithAnimation()
+  }, 150)
+}
+
+const closeTagSuggestionsWithAnimation = () => {
+  if (showTagSuggestions.value && !isTagSuggestionsClosing.value) {
+    isTagSuggestionsClosing.value = true
+    setTimeout(() => {
+      showTagSuggestions.value = false
+      isTagSuggestionsClosing.value = false
+    }, 200)
+  }
+}
+
+const handleFolderInput = (e) => {
+  editablePhoto.value.folder = e.target.value
+  showFolderSuggestions.value = true
 }
 
 const selectFolderSuggestion = (folder) => {
   editablePhoto.value.folder = folder
-  showFolderSuggestions.value = false
+  closeFolderSuggestionsWithAnimation()
+}
+
+const handleFolderBlur = () => {
+  // 使用 setTimeout 确保点击建议项时不会立即关闭列表
+  setTimeout(() => {
+    closeFolderSuggestionsWithAnimation()
+  }, 150)
+}
+
+const closeFolderSuggestionsWithAnimation = () => {
+  if (showFolderSuggestions.value && !isFolderSuggestionsClosing.value) {
+    isFolderSuggestionsClosing.value = true
+    setTimeout(() => {
+      showFolderSuggestions.value = false
+      isFolderSuggestionsClosing.value = false
+    }, 200)
+  }
 }
 
 // 点击外部关闭建议列表
 const handleClickOutside = (event) => {
-  if (folderInput.value && !folderInput.value.contains(event.target)) {
-    showFolderSuggestions.value = false
+  // 检查是否点击了建议项
+  const isSuggestionItem = event.target.classList.contains('suggestion-item')
+
+  if (folderInput.value && !folderInput.value.contains(event.target) && !isSuggestionItem) {
+    closeFolderSuggestionsWithAnimation()
+  }
+  if (tagInput.value && !tagInput.value.contains(event.target) && !isSuggestionItem) {
+    closeTagSuggestionsWithAnimation()
   }
 }
 
@@ -220,7 +384,18 @@ const handleSaveAndNext = async () => {
 
   try {
     isSaving.value = true
+
+    // 在保存前移除标记为删除的标签
+    if (tagsToRemove.value.length > 0) {
+      editablePhoto.value.tags = editablePhoto.value.tags.filter(tag => !tagsToRemove.value.includes(tag))
+      tagsToRemove.value = []
+    }
+
     await emit('save-and-next', editablePhoto.value)
+
+    // 清除当前分类照片，以便后续使用正常索引
+    photoStore.currentCategorizePhoto = null
+
     await nextTick()
     goToNext()
   } catch (error) {
@@ -232,6 +407,10 @@ const handleSaveAndNext = async () => {
 
 const handleNext = () => {
   emit('next')
+
+  // 清除当前分类照片，以便后续使用正常索引
+  photoStore.currentCategorizePhoto = null
+
   goToNext()
 }
 
@@ -286,6 +465,28 @@ const getTagColorClass = (tag) => {
   // 使用哈希值选择颜色类名
   const index = Math.abs(hash) % colorClasses.length
   return colorClasses[index]
+}
+
+const getTagSuggestionsStyle = () => {
+  if (!tagInput.value) return {}
+
+  const rect = tagInput.value.getBoundingClientRect()
+  return {
+    top: `${rect.bottom + window.scrollY}px`,
+    left: `${rect.left + window.scrollX}px`,
+    width: `${rect.width}px`
+  }
+}
+
+const getFolderSuggestionsStyle = () => {
+  if (!folderInput.value) return {}
+
+  const rect = folderInput.value.getBoundingClientRect()
+  return {
+    top: `${rect.bottom + window.scrollY}px`,
+    left: `${rect.left + window.scrollX}px`,
+    width: `${rect.width}px`
+  }
 }
 </script>
 
@@ -392,8 +593,40 @@ const getTagColorClass = (tag) => {
   margin-top: 8px;
 }
 
+.popular-tags-section {
+  margin-bottom: 16px;
+}
+
+.popular-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.current-tags-section {
+  margin-bottom: 16px;
+}
+
+.add-tag-section {
+  margin-top: 16px;
+}
+
 .add-tag {
   width: 100%;
+  position: relative;
+}
+
+.tag-selected {
+  background-color: var(--md-sys-color-primary-container) !important;
+  color: var(--md-sys-color-on-primary-container) !important;
+}
+
+.tag-marked-for-removal {
+  opacity: 0.5;
+  text-decoration: line-through;
+  background-color: var(--md-sys-color-error-container) !important;
+  color: var(--md-sys-color-on-error-container) !important;
 }
 
 .info-grid {
@@ -406,19 +639,40 @@ const getTagColorClass = (tag) => {
   position: relative;
 }
 
-.folder-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+.tag-suggestions {
+  position: fixed;
   background: var(--md-sys-color-surface);
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: 8px;
   box-shadow: var(--md-sys-elevation-level2);
-  z-index: 10;
+  z-index: 1001;
   max-height: 200px;
   overflow-y: auto;
-  margin-top: 4px;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.tag-suggestions.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.folder-suggestions {
+  position: fixed;
+  background: var(--md-sys-color-surface);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  box-shadow: var(--md-sys-elevation-level2);
+  z-index: 1001;
+  max-height: 200px;
+  overflow-y: auto;
+  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.folder-suggestions.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .suggestion-item {

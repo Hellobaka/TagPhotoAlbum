@@ -159,12 +159,9 @@ export const photoApi = {
     return api.get('/search', { params: { q: query } })
   },
 
-  // 获取推荐照片（支持分页和去重）
-  getRecommendPhotos(page = 1, limit = 20, excludeIds = []) {
-    const params = {
-      page,
-      limit
-    }
+  // 获取推荐照片（支持去重）
+  getRecommendPhotos(excludeIds = []) {
+    const params = {}
 
     if (excludeIds && excludeIds.length > 0) {
       params.excludeIds = excludeIds.join(',')

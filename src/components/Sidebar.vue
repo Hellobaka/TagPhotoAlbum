@@ -29,12 +29,12 @@
         <h3 class="filter-title">标签</h3>
         <div class="filter-items">
           <md-filter-chip
-            v-for="tag in photoStore.allTags"
-            :key="tag"
-            :label="tag"
-            :selected="selectedTags.includes(tag)"
-            @click="toggleTag(tag)"
-            :class="getTagColorClass(tag)"
+            v-for="tag in photoStore.tags"
+            :key="tag.name"
+            :label="`${tag.name} (${tag.count})`"
+            :selected="selectedTags.includes(tag.name)"
+            @click="toggleTag(tag.name)"
+            :class="getTagColorClass(tag.name)"
           />
         </div>
       </div>
@@ -228,14 +228,36 @@ const getTagColorClass = (tag) => {
   width: 280px;
   background: var(--md-sys-color-surface-container-low);
   border-right: 1px solid var(--md-sys-color-outline-variant);
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, transform 0.3s ease;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  z-index: 999;
 }
 
 .sidebar-collapsed {
   width: 80px;
+}
+
+/* 移动端样式 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    border-right: none;
+    box-shadow: var(--md-sys-elevation-level3);
+  }
+
+  .sidebar:not(.sidebar-collapsed) {
+    transform: translateX(0);
+  }
+
+  .sidebar-collapsed {
+    transform: translateX(-100%);
+  }
 }
 
 .sidebar-header {
@@ -313,11 +335,11 @@ const getTagColorClass = (tag) => {
 /* 响应式设计 */
 @media (max-width: 480px) {
   .sidebar {
-    width: 240px;
+    width: 280px;
   }
 
   .sidebar-collapsed {
-    width: 64px;
+    width: 80px;
   }
 }
 </style>

@@ -1,35 +1,35 @@
 <template>
   <div v-if="hasActiveFilters" class="filter-status">
     <div class="filter-chips">
-      <md-suggestion-chip
+      <md-filter-chip
         v-for="tag in selectedTags"
         :key="tag"
         :label="tag"
         @click="toggleTag(tag)"
       >
-        <md-icon slot="icon">local_offer</md-icon>
-      </md-suggestion-chip>
-      <md-suggestion-chip
+        <md-icon slot="icon" style="margin-right: 5px;">local_offer</md-icon>
+      </md-filter-chip>
+      <md-filter-chip
         v-if="selectedFolder"
         :label="selectedFolder"
         @click="selectFolder(selectedFolder)"
       >
-        <md-icon slot="icon">folder</md-icon>
-      </md-suggestion-chip>
-      <md-suggestion-chip
+        <md-icon slot="icon" style="margin-right: 5px;">folder</md-icon>
+      </md-filter-chip>
+      <md-filter-chip
         v-if="selectedLocation"
         :label="selectedLocation"
         @click="selectLocation(selectedLocation)"
       >
-        <md-icon slot="icon">location_on</md-icon>
-      </md-suggestion-chip>
-      <md-suggestion-chip
+        <md-icon slot="icon" style="margin-right: 5px;">location_on</md-icon>
+      </md-filter-chip>
+      <md-filter-chip
         v-if="searchQuery"
         :label="'搜索: ' + searchQuery"
         @click="clearSearch"
       >
-        <span slot="icon" class="material-symbols-outlined">search</span>
-      </md-suggestion-chip>
+        <md-icon slot="icon" style="margin-right: 5px;">search</md-icon>
+      </md-filter-chip>
       <md-text-button style="padding-left: 15px; padding-right: 15px;" @click="clearAllFilters">清除全部</md-text-button>
     </div>
   </div>

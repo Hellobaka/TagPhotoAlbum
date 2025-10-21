@@ -4,6 +4,7 @@ import App from './App.vue'
 import router from './router'
 
 // 导入Material Web Components
+import './assets/global.css'
 import '@material/web/all.js'
 
 // 配置Vue忽略Material Web Components作为自定义元素

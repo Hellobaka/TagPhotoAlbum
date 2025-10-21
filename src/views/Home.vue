@@ -14,6 +14,13 @@
     />
 
     <div class="layout">
+      <!-- 移动端遮罩层 -->
+      <div
+        v-if="!isCollapsed && isMobile"
+        class="sidebar-overlay"
+        @click="toggleSidebar"
+      ></div>
+
       <!-- 左侧导航栏 -->
       <Sidebar
         :is-collapsed="isCollapsed"
@@ -33,6 +40,14 @@
         <div class="content-header">
           <div class="header-content">
             <div class="header-title-section">
+              <!-- 移动端侧边栏切换按钮 -->
+              <md-icon-button
+                v-if="isMobile"
+                @click="toggleSidebar"
+                class="mobile-menu-button"
+              >
+                <span class="material-symbols-outlined">menu</span>
+              </md-icon-button>
               <h1 class="md-typescale-headline-small">{{ getActiveTabLabel }}</h1>
               <!-- 刷新按钮 -->
               <md-icon-button
@@ -97,10 +112,10 @@
         <div v-if="activeTab === 'uncategorized' && filteredPhotos.length > 0" class="categorize-section">
           <div class="categorize-container">
             <md-filled-button
-              @click="startCategorization"
+              @click="()=>startCategorization()"
               class="categorize-button"
             >
-              <span class="material-symbols-outlined categorize-icon">category</span>
+              <md-icon slot="icon">category</md-icon>
               继续分类
             </md-filled-button>
           </div>
@@ -138,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -164,6 +179,7 @@ const isCategorizing = ref(false)
 const showUploadZone = ref(false)
 const isClosingUploadZone = ref(false)
 const isRefreshing = ref(false)
+const isMobile = ref(false)
 
 // 标签页配置
 const tabs = [
@@ -362,9 +378,14 @@ const refreshRecommendPhotos = async () => {
 }
 
 const openPhotoDetail = (photo) => {
-  selectedPhoto.value = photo
-  editablePhoto.value = { ...photo }
-  newTag.value = ''
+  // 如果在未分类页面，打开分类对话框而不是图片详情对话框
+  if (activeTab.value === 'uncategorized') {
+    startCategorization(photo)
+  } else {
+    selectedPhoto.value = photo
+    editablePhoto.value = { ...photo }
+    newTag.value = ''
+  }
 }
 
 const closePhotoDetail = () => {
@@ -379,8 +400,14 @@ const savePhotoInfo = () => {
 }
 
 // 分类相关方法
-const startCategorization = () => {
+const startCategorization = (selectedPhoto = null) => {
   isCategorizing.value = true
+  // 如果传入了选中的照片，设置当前分类的照片
+  if (selectedPhoto) {
+    photoStore.setCurrentCategorizePhoto(selectedPhoto)
+  } else{
+    photoStore.setCurrentCategorizePhoto(filteredPhotos[0])
+  }
 }
 
 const stopCategorization = () => {
@@ -458,22 +485,29 @@ const closeUploadZone = () => {
   }
 }
 
+// 检测移动端
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768
+}
+
 onMounted(async () => {
+  // 检测移动端
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+
   // 根据当前标签页加载数据
   try {
-    if (activeTab.value === 'recommend') {
-      // 推荐页面：加载推荐照片
-      await photoStore.getRecommendPhotos()
-    } else if (activeTab.value === 'uncategorized') {
-      // 未分类页面：加载未分类照片
-      await photoStore.getUncategorizedPhotos()
-    } else {
-      // 标签、文件夹、地点页面：加载第一页数据
-      await photoStore.loadFirstPage()
-    }
+    await photoStore.getRecommendPhotos()
+    await photoStore.getTagsData()
+    await photoStore.getFoldersData()
+    await photoStore.getLocationsData()
   } catch (error) {
     console.error('Failed to load initial photo data:', error)
   }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -523,6 +557,10 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.mobile-menu-button {
+  color: var(--md-sys-color-on-surface);
 }
 
 .refresh-icon-button {
@@ -728,6 +766,18 @@ onMounted(async () => {
   }
 }
 
+/* 侧边栏遮罩层 */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  animation: fadeIn 0.3s ease;
+}
+
 /* 响应式设计 */
 @media (max-width: 1200px) {
   .masonry-grid {
@@ -736,6 +786,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
+  .layout {
+    position: relative;
+  }
+
   .main-content {
     --header-height: 153px; /* 移动端 header 高度 */
   }
