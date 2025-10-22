@@ -16,5 +16,16 @@ export default defineConfig({
     alias: {
       '@': '/src',
     },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['vue', 'vue-router', 'pinia'],
+          'axios': ['axios']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
   }
 })

@@ -79,7 +79,7 @@ App
 - Route guards for protected pages
 - Automatic token refresh handling
 
-## Recent Updates (2025-10-18)
+## Recent Updates (Last Updated: 2025-10-22)
 
 ### Lazy Loading Implementation
 - **Pagination**: Tags, folders, and locations pages now load only first page (20 photos)
@@ -112,12 +112,23 @@ App
 - **Current Settings**:
   - `BASE_URL: 'http://localhost:5085'`
   - `API_PREFIX: '/api'`
-  - `UPLOAD_PATH: '/upload'`
+  - `UPLOAD_PATH: '/external'`
+  - `HMAC_KEY`: JWT signing key (must match backend configuration)
 
 ### Tab Navigation
 - **Data Refresh**: Each tab switch now automatically refreshes data
 - **Uncategorized Photos**: Uses dedicated `/photos/uncategorized` endpoint
 - **Recommend Photos**: Uses dedicated `/photos/recommend` endpoint
+
+### Recent Features
+- **Component Splitting**: Improved modularity and code organization
+- **Original Image Display**: Category editor can show original (uncompressed) images
+- **Image Metadata**: Display upload time and file size for photos
+- **Compressed Images**: Prioritize compressed images with fallback to original
+- **Enhanced Editing**: Improved tag and folder editing in category editor
+- **Mobile Optimization**: Sidebar displays as overlay on mobile devices
+- **Font Update**: Default font changed to Google Sans
+- **Image Recommendations**: Backend support for excluding specific images from recommendations
 
 ## Development Notes
 
@@ -149,3 +160,5 @@ App
 - **On-Demand Data**: Filter data loads only when needed
 - **Efficient State**: Each tab manages its own loading and data
 - **Refresh Optimization**: Global refresh button with visual feedback
+- **Build Optimization**: Vite configured with manual chunk splitting for vendor libraries
+- **Path Aliases**: `@` alias configured for `/src` directory imports

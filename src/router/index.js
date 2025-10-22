@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '../views/Home.vue'
-import Login from '../views/Login.vue'
 import { useAuthStore } from '@/stores/authStore'
+
+// 使用懒加载优化包大小
+const Home = () => import('../views/Home.vue')
+const Login = () => import('../views/Login.vue')
 
 const routes = [
   {
