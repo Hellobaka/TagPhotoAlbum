@@ -634,7 +634,7 @@ const iconMap = {
   LensSerialNumber: 'numbers',
 }
 
-const exifObjectKey = ['ExposureTime', 'FNumber', 'ISOSpeedRatings', 'FocalLength', 'CompressedBitsPerPixel', 'ExposureBiasValue']
+const exifObjectKey = ['ExposureTime', 'FNumber', 'ISOSpeedRatings', 'FocalLength', 'CompressedBitsPerPixel', 'ExposureBiasValue', 'XResolution', 'YResolution']
 
 const getExifIsCommon = (key) => {
   return commonExifLabelMap[key]
