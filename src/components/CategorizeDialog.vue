@@ -13,33 +13,15 @@
           </div>
 
           <div class="dialog-content">
-            <div class="photo-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
-              <img
-                v-if="currentPhoto"
-                :src="currentImageUrl"
-                :alt="currentPhoto.title"
-              />
-              <div v-else class="no-photo">
-                <span class="material-symbols-outlined">photo</span>
-                <p>没有更多未分类图片</p>
-              </div>
-              <div class="original-image-button" :class="{ 'show': showOriginalButton && currentPhoto?.compressedFilePath && !isShowingOriginal }">
-                <md-filled-tonal-button
-                  @click="toggleOriginalImage"
-                  style="padding-left: 15px; padding-right: 15px;"
-                >
-                  <md-icon slot="icon">open_in_full</md-icon>
-                  显示原图
-                </md-filled-tonal-button>
-              </div>
-            </div>
-
             <PhotoEditor
+              :photo="currentPhoto"
               :editable-photo="editablePhoto"
               :new-tag="newTag"
               :tags-to-remove="tagsToRemove"
               :popular-tags="popularTags"
               :all-folders="photoStore.allFolders"
+              :show-no-photo="!currentPhoto"
+              :no-photo-text="'没有更多未分类图片'"
               @update:title="value => editablePhoto.title = value"
               @update:description="value => editablePhoto.description = value"
               @update:location="value => editablePhoto.location = value"
@@ -68,7 +50,6 @@
 <script setup>
 import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
-import API_CONFIG from '@/config/api'
 import PhotoEditor from '@/components/PhotoEditor.vue'
 
 const props = defineProps({
@@ -89,16 +70,7 @@ const currentIndex = ref(0)
 const editablePhoto = ref({})
 const newTag = ref('')
 const isSaving = ref(false)
-const showFolderSuggestions = ref(false)
-const folderInput = ref(null)
-const showTagSuggestions = ref(false)
-const tagInput = ref(null)
-const isTagSuggestionsClosing = ref(false)
-const isFolderSuggestionsClosing = ref(false)
 const tagsToRemove = ref([])
-const showOriginalButton = ref(false)
-const isShowingOriginal = ref(false)
-const currentImageUrl = ref('')
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -122,26 +94,11 @@ watch(currentPhoto, (newPhoto) => {
   if (newPhoto) {
     editablePhoto.value = { ...newPhoto }
     newTag.value = ''
-    showFolderSuggestions.value = false
-    showTagSuggestions.value = false
-    isTagSuggestionsClosing.value = false
-    isFolderSuggestionsClosing.value = false
     tagsToRemove.value = []
-    isShowingOriginal.value = false
-    showOriginalButton.value = false
-    // 初始化图片URL
-    currentImageUrl.value = getImageUrl(newPhoto)
   } else {
     editablePhoto.value = {}
     newTag.value = ''
-    showFolderSuggestions.value = false
-    showTagSuggestions.value = false
-    isTagSuggestionsClosing.value = false
-    isFolderSuggestionsClosing.value = false
     tagsToRemove.value = []
-    isShowingOriginal.value = false
-    showOriginalButton.value = false
-    currentImageUrl.value = ''
   }
 }, { immediate: true })
 
@@ -246,73 +203,6 @@ const goToNext = () => {
     closeDialog()
   }
 }
-
-const getImageUrl = (photo) => {
-  if (!photo) return ''
-
-  // 优先使用压缩图片路径
-  let url = photo.compressedFilePath || photo.filePath
-
-  if (!url) return ''
-
-  // 如果已经是完整 URL，直接返回
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-    return url
-  }
-
-  // 如果是相对路径，拼接后端 API 地址
-  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
-    return `${API_CONFIG.BASE_URL}${url}`
-  }
-
-  // 其他情况直接返回
-  return url
-}
-
-
-
-const toggleOriginalImage = () => {
-  if (!currentPhoto.value) return
-
-  if (isShowingOriginal.value) {
-    // 切换回压缩图
-    currentImageUrl.value = getImageUrl(currentPhoto.value)
-    isShowingOriginal.value = false
-  } else {
-    // 切换到原图
-    currentImageUrl.value = getOriginalImageUrl(currentPhoto.value)
-    isShowingOriginal.value = true
-  }
-}
-
-const getOriginalImageUrl = (photo) => {
-  if (!photo) return ''
-
-  let url = photo.filePath
-
-  if (!url) return ''
-
-  // 如果已经是完整 URL，直接返回
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-    return url
-  }
-
-  // 如果是相对路径，拼接后端 API 地址
-  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
-    return `${API_CONFIG.BASE_URL}${url}`
-  }
-
-  // 其他情况直接返回
-  return url
-}
-
-const handleMouseEnter = () => {
-  showOriginalButton.value = true
-}
-
-const handleMouseLeave = () => {
-  showOriginalButton.value = false
-}
 </script>
 
 <style scoped>
@@ -356,193 +246,9 @@ const handleMouseLeave = () => {
 }
 
 .dialog-content {
-  display: flex;
-  gap: 24px;
   padding: 0 24px;
   flex: 1;
   overflow: auto;
-}
-
-.photo-container {
-  flex: 1;
-  background: var(--md-sys-color-surface-container-high);
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-  margin-top: 10px;
-  position: relative;
-}
-
-.photo-container img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.original-image-button {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%) translateY(10px);
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.original-image-button.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.no-photo {
-  text-align: center;
-  color: var(--md-sys-color-on-surface-variant);
-  padding: 40px;
-}
-
-.no-photo .material-symbols-outlined {
-  font-size: 64px;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.info-section {
-  flex: 1;
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 10px;
-  padding-bottom: 16px;
-}
-
-.info-field {
-  width: 100%;
-}
-
-.tags-section {
-  margin-top: 8px;
-}
-
-.tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.popular-tags-section {
-  margin-bottom: 16px;
-}
-
-.popular-tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.current-tags-section {
-  margin-bottom: 16px;
-}
-
-.add-tag-section {
-  margin-top: 16px;
-}
-
-.add-tag {
-  width: 100%;
-  position: relative;
-}
-
-.tag-selected {
-  background-color: var(--md-sys-color-primary-container) !important;
-  color: var(--md-sys-color-on-primary-container) !important;
-}
-
-.tag-marked-for-removal {
-  opacity: 0.5;
-  text-decoration: line-through;
-  background-color: var(--md-sys-color-error-container) !important;
-  color: var(--md-sys-color-on-error-container) !important;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.folder-field {
-  position: relative;
-}
-
-.tag-suggestions {
-  position: fixed;
-  background: var(--md-sys-color-surface);
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: 8px;
-  box-shadow: var(--md-sys-elevation-level2);
-  z-index: 1001;
-  max-height: 200px;
-  overflow-y: auto;
-  overflow: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.tag-suggestions:not(.fade-out) {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.tag-suggestions.fade-out {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.folder-suggestions {
-  position: fixed;
-  background: var(--md-sys-color-surface);
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: 8px;
-  box-shadow: var(--md-sys-elevation-level2);
-  z-index: 1001;
-  max-height: 200px;
-  overflow-y: auto;
-  overflow: hidden;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.folder-suggestions:not(.fade-out) {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.folder-suggestions.fade-out {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.suggestion-item {
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  font-size: 14px;
-}
-
-.suggestion-item:hover {
-  background: var(--md-sys-color-surface-container-highest);
-}
-
-.suggestion-item:not(:last-child) {
-  border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
 .dialog-actions {
@@ -603,10 +309,6 @@ const handleMouseLeave = () => {
   .dialog-content {
     flex-direction: column;
   }
-
-  .photo-container {
-    max-height: 300px;
-  }
 }
 
 @media (max-width: 768px) {
@@ -620,10 +322,6 @@ const handleMouseLeave = () => {
 
   .dialog-content {
     padding: 0 16px;
-  }
-
-  .info-grid {
-    grid-template-columns: 1fr;
   }
 
   .dialog-actions {

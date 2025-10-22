@@ -1,121 +1,147 @@
 <template>
-  <div class="info-section">
-    <md-outlined-text-field
-      :value="editablePhoto.title"
-      @input="e => $emit('update:title', e.target.value)"
-      label="标题"
-      class="info-field"
-    />
-
-    <md-outlined-text-field
-      :value="editablePhoto.description"
-      @input="e => $emit('update:description', e.target.value)"
-      label="描述"
-      type="textarea"
-      rows="3"
-      class="info-field"
-    />
-
-    <div class="tags-section">
-      <h3 class="md-typescale-title-medium">标签</h3>
-
-      <!-- 常用标签区域 -->
-      <div class="popular-tags-section">
-        <h4 class="md-typescale-body-medium">常用标签</h4>
-        <span v-if="popularTags.length == 0">空</span>
-        <div class="popular-tags-container">
-          <md-suggestion-chip
-            v-for="tag in popularTags"
-            :key="tag"
-            :label="`${tag.name} (${tag.count})`"
-            @click="$emit('toggle-tag', tag.name)"
-            :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]"
-          />
-        </div>
+  <div class="photo-editor-container">
+    <!-- 图片展示区域 -->
+    <div class="photo-container" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
+      <img v-if="photo" :src="currentImageUrl" :alt="photo.title || '图片'" />
+      <div v-else-if="showNoPhoto" class="no-photo">
+        <span class="material-symbols-outlined">photo</span>
+        <p>{{ noPhotoText }}</p>
       </div>
-
-      <!-- 当前图片标签 -->
-      <div class="current-tags-section">
-        <h4 class="md-typescale-body-medium">当前标签</h4>
-        <div class="tags-container">
-          <span v-if="editablePhoto.tags.length == 0">空</span>
-          <md-suggestion-chip
-            v-for="tag in editablePhoto.tags"
-            :key="tag"
-            :label="tag"
-            @click="$emit('toggle-tag-for-removal', tag)"
-            :class="[getTagColorClass(tag), { 'tag-marked-for-removal': tagsToRemove.includes(tag), 'tag-selected': !tagsToRemove.includes(tag) }]"
-          />
-        </div>
+      <div class="original-image-button" :class="{ 'show': showOriginalButton && photo?.compressedFilePath && !isShowingOriginal }">
+        <md-filled-tonal-button
+          @click="toggleOriginalImage"
+          style="padding-left: 15px; padding-right: 15px;"
+        >
+          <md-icon slot="icon">open_in_full</md-icon>
+          显示原图
+        </md-filled-tonal-button>
       </div>
+    </div>
 
-      <!-- 添加新标签 -->
-      <div class="add-tag-section">
-        <div class="add-tag">
-          <md-outlined-text-field
-            :value="newTag"
-            @input="handleTagInput"
-            @focus="showTagSuggestions = true"
-            @blur="handleTagBlur"
-            label="添加标签"
-            @keyup.enter="addTag"
-            ref="tagInput"
-          >
-            <md-icon-button slot="trailing-icon" @click="addTag">
-              <span class="material-symbols-outlined">add</span>
-            </md-icon-button>
-          </md-outlined-text-field>
-          <div v-if="showTagSuggestions && filteredTags.length > 0" class="tag-suggestions" :class="{ 'fade-out': isTagSuggestionsClosing }" :style="getTagSuggestionsStyle()">
-            <div
-              v-for="tag in filteredTags"
+    <!-- 编辑信息区域 -->
+    <div class="info-section">
+      <md-outlined-text-field
+        :value="editablePhoto.title"
+        @input="e => $emit('update:title', e.target.value)"
+        label="标题"
+        class="info-field"
+      />
+
+      <md-outlined-text-field
+        :value="editablePhoto.description"
+        @input="e => $emit('update:description', e.target.value)"
+        label="描述"
+        type="textarea"
+        rows="3"
+        class="info-field"
+      />
+
+      <div class="tags-section">
+        <h3 class="md-typescale-title-medium">标签</h3>
+
+        <!-- 常用标签区域 -->
+        <div class="popular-tags-section">
+          <h4 class="md-typescale-body-medium">常用标签</h4>
+          <span v-if="popularTags.length == 0">空</span>
+          <div class="popular-tags-container">
+            <md-suggestion-chip
+              v-for="tag in popularTags"
               :key="tag"
-              class="suggestion-item"
-              @click="selectTagSuggestion(tag)"
+              :label="`${tag.name} (${tag.count})`"
+              @click="$emit('toggle-tag', tag.name)"
+              :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]"
+            />
+          </div>
+        </div>
+
+        <!-- 当前图片标签 -->
+        <div class="current-tags-section">
+          <h4 class="md-typescale-body-medium">当前标签</h4>
+          <div class="tags-container">
+            <span v-if="editablePhoto.tags.length == 0">空</span>
+            <md-suggestion-chip
+              v-for="tag in editablePhoto.tags"
+              :key="tag"
+              :label="tag"
+              @click="$emit('toggle-tag-for-removal', tag)"
+              :class="[getTagColorClass(tag), { 'tag-marked-for-removal': tagsToRemove.includes(tag), 'tag-selected': !tagsToRemove.includes(tag) }]"
+            />
+          </div>
+        </div>
+
+        <!-- 添加新标签 -->
+        <div class="add-tag-section">
+          <div class="add-tag">
+            <md-outlined-text-field
+              :value="newTag"
+              @input="handleTagInput"
+              @focus="showTagSuggestions = true"
+              @blur="handleTagBlur"
+              label="添加标签"
+              @keyup.enter="addTag"
+              ref="tagInput"
             >
-              {{ tag }}
+              <md-icon-button slot="trailing-icon" @click="addTag">
+                <span class="material-symbols-outlined">add</span>
+              </md-icon-button>
+            </md-outlined-text-field>
+            <div v-if="showTagSuggestions && filteredTags.length > 0" class="tag-suggestions" :class="{ 'fade-out': isTagSuggestionsClosing }" :style="getTagSuggestionsStyle()">
+              <div
+                v-for="tag in filteredTags"
+                :key="tag"
+                class="suggestion-item"
+                @click="selectTagSuggestion(tag)"
+              >
+                {{ tag }}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="info-grid">
-      <div class="folder-field">
-        <md-outlined-text-field
-          :value="editablePhoto.folder"
-          @input="handleFolderInput"
-          @focus="showFolderSuggestions = true"
-          @blur="handleFolderBlur"
-          label="文件夹"
-          class="info-field"
-          ref="folderInput"
-        />
-        <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions" :class="{ 'fade-out': isFolderSuggestionsClosing }" :style="getFolderSuggestionsStyle()">
-          <div
-            v-for="folder in filteredFolders"
-            :key="folder"
-            class="suggestion-item"
-            @click="selectFolderSuggestion(folder)"
-          >
-            {{ folder }}
+      <div class="info-grid">
+        <div class="folder-field">
+          <md-outlined-text-field
+            :value="editablePhoto.folder"
+            @input="handleFolderInput"
+            @focus="showFolderSuggestions = true"
+            @blur="handleFolderBlur"
+            label="文件夹"
+            class="info-field"
+            ref="folderInput"
+          />
+          <div v-if="showFolderSuggestions && filteredFolders.length > 0" class="folder-suggestions" :class="{ 'fade-out': isFolderSuggestionsClosing }" :style="getFolderSuggestionsStyle()">
+            <div
+              v-for="folder in filteredFolders"
+              :key="folder"
+              class="suggestion-item"
+              @click="selectFolderSuggestion(folder)"
+            >
+              {{ folder }}
+            </div>
           </div>
         </div>
+        <md-outlined-text-field
+          :value="editablePhoto.location"
+          @input="e => $emit('update:location', e.target.value)"
+          label="地点"
+          class="info-field"
+        />
       </div>
-      <md-outlined-text-field
-        :value="editablePhoto.location"
-        @input="e => $emit('update:location', e.target.value)"
-        label="地点"
-        class="info-field"
-      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
+import API_CONFIG from '@/config/api'
 
 const props = defineProps({
+  photo: {
+    type: Object,
+    default: null
+  },
   editablePhoto: {
     type: Object,
     required: true
@@ -135,6 +161,14 @@ const props = defineProps({
   allFolders: {
     type: Array,
     default: () => []
+  },
+  showNoPhoto: {
+    type: Boolean,
+    default: false
+  },
+  noPhotoText: {
+    type: String,
+    default: '没有更多图片'
   }
 })
 
@@ -156,9 +190,91 @@ const showTagSuggestions = ref(false)
 const tagInput = ref(null)
 const isTagSuggestionsClosing = ref(false)
 const isFolderSuggestionsClosing = ref(false)
+const showOriginalButton = ref(false)
+const isShowingOriginal = ref(false)
+const currentImageUrl = ref('')
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
+
+// 图片相关方法
+const getImageUrl = (photo) => {
+  if (!photo) return ''
+
+  // 优先使用压缩图片路径
+  let url = photo.compressedFilePath || photo.filePath
+
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
+}
+
+const getOriginalImageUrl = (photo) => {
+  if (!photo) return ''
+
+  let url = photo.filePath
+
+  if (!url) return ''
+
+  // 如果已经是完整 URL，直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接后端 API 地址
+  if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
+    return `${API_CONFIG.BASE_URL}${url}`
+  }
+
+  // 其他情况直接返回
+  return url
+}
+
+const toggleOriginalImage = () => {
+  if (!props.photo) return
+
+  if (isShowingOriginal.value) {
+    // 切换回压缩图
+    currentImageUrl.value = getImageUrl(props.photo)
+    isShowingOriginal.value = false
+  } else {
+    // 切换到原图
+    currentImageUrl.value = getOriginalImageUrl(props.photo)
+    isShowingOriginal.value = true
+  }
+}
+
+const handleMouseEnter = () => {
+  showOriginalButton.value = true
+}
+
+const handleMouseLeave = () => {
+  showOriginalButton.value = false
+}
+
+// 监听 photo 变化，更新图片 URL
+watch(() => props.photo, (newPhoto) => {
+  if (newPhoto) {
+    isShowingOriginal.value = false
+    showOriginalButton.value = false
+    currentImageUrl.value = getImageUrl(newPhoto)
+  } else {
+    isShowingOriginal.value = false
+    showOriginalButton.value = false
+    currentImageUrl.value = ''
+  }
+}, { immediate: true })
 
 // 计算属性 - 过滤文件夹建议
 const filteredFolders = computed(() => {
@@ -317,6 +433,60 @@ const getTagColorClass = (tag) => {
 </script>
 
 <style scoped>
+.photo-editor-container {
+  display: flex;
+  gap: 24px;
+  flex: 1;
+  overflow: auto;
+}
+
+.photo-container {
+  flex: 1;
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  max-height: min(600px, 50vh);
+  margin-top: 10px;
+  position: relative;
+}
+
+.photo-container img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.original-image-button {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.original-image-button.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.no-photo {
+  text-align: center;
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 40px;
+}
+
+.no-photo .material-symbols-outlined {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
 .info-section {
   flex: 1;
   max-width: 400px;
@@ -457,9 +627,32 @@ const getTagColorClass = (tag) => {
 }
 
 /* 响应式设计 */
+@media (max-width: 1200px) {
+  .photo-editor-container {
+    flex-direction: column;
+  }
+
+  .photo-container {
+    max-height: max(400px, 60vh);
+    min-height: 250px;
+  }
+}
+
 @media (max-width: 768px) {
+  .photo-container {
+    max-height: max(350px, 60vh);
+    min-height: 200px;
+  }
+
   .info-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-container {
+    max-height: max(400px, 60vh);
+    min-height: 180px;
   }
 }
 </style>
