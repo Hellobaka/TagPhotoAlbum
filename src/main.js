@@ -19,6 +19,7 @@ import '@material/web/textfield/filled-text-field.js'
 import '@material/web/progress/circular-progress.js'
 import '@material/web/iconbutton/icon-button.js'
 import '@material/web/icon/icon.js'
+import '@material/web/switch/switch.js'
 
 // 配置Vue忽略Material Web Components作为自定义元素
 const app = createApp(App, {
