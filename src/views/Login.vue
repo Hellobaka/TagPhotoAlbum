@@ -38,6 +38,24 @@
           <span v-else>登录</span>
         </md-filled-button>
       </form>
+
+      <!-- 通行密钥登录 -->
+      <div class="passkey-section">
+        <div class="divider">
+          <span>或</span>
+        </div>
+        <div class="passkey-btn-container" :title="!isPasskeySupported ? '当前浏览器不支持通过通行密钥登录' : ''" :style="!isPasskeySupported ? 'cursor: not-allowed' : ''">
+          <md-filled-tonal-button
+            @click="handlePasskeyLogin"
+            class="passkey-btn"
+            :disabled="isLoading || !isPasskeySupported"
+          >
+            <md-icon slot="icon">fingerprint</md-icon>
+            使用通行密钥登录
+          </md-filled-tonal-button>
+        </div>
+        <p class="passkey-hint">支持指纹、面容ID、Windows Hello等</p>
+      </div>
     </div>
   </div>
 </template>
@@ -55,6 +73,17 @@ const username = ref('')
 const password = ref('')
 const isLoading = ref(false)
 const error = ref('')
+const isPasskeySupported = ref(false)
+
+// 检查 WebAuthn 支持
+const checkPasskeySupport = () => {
+  // 检查浏览器是否支持 WebAuthn
+  isPasskeySupported.value =
+    window.PublicKeyCredential &&
+    typeof window.PublicKeyCredential === 'function' &&
+    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&
+    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
+}
 
 // 登录处理
 const handleLogin = async () => {
@@ -78,6 +107,31 @@ const handleLogin = async () => {
     isLoading.value = false
   }
 }
+
+// 通行密钥登录处理
+const handlePasskeyLogin = async () => {
+  isLoading.value = true
+  error.value = ''
+
+  try {
+    const result = await authStore.loginWithPasskey()
+
+    if (result[0]) {
+      // 登录成功，跳转到首页
+      router.push('/')
+    } else {
+      error.value = result[1]
+    }
+  } catch (err) {
+    console.error('Passkey login error:', err)
+    error.value = '通行密钥登录失败，请重试或使用传统方式登录'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 组件挂载时检查 WebAuthn 支持
+checkPasskeySupport()
 </script>
 
 <style scoped>
@@ -144,6 +198,61 @@ const handleLogin = async () => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 通信密钥登录样式 */
+.passkey-section {
+  margin-top: 24px;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+  color: var(--md-sys-color-outline);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--md-sys-color-outline-variant);
+}
+
+.divider span {
+  padding: 0 12px;
+  font-size: 14px;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.passkey-btn-container {
+  position: relative;
+  width: 100%;
+}
+
+.passkey-btn {
+  width: 100%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.passkey-btn:disabled {
+  cursor: not-allowed;
+}
+
+.passkey-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.passkey-hint {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: var(--md-sys-color-on-surface-variant);
+  text-align: center;
 }
 
 .error-message {

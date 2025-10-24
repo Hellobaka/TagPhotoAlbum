@@ -80,6 +80,37 @@ export const photoApi = {
     return api.post('/auth/login', secureCredentials)
   },
 
+  // PassKey 相关 API
+  // 获取注册选项
+  getPasskeyRegistrationOptions() {
+    return api.post('/passkey/registration-options')
+  },
+
+  // 获取认证选项
+  getPasskeyAuthenticationOptions(username) {
+    return api.post('/passkey/authentication-options', username)
+  },
+
+  // 注册通行密钥
+  registerPasskey(registrationData) {
+    return api.post('/passkey/register', registrationData)
+  },
+
+  // 使用通行密钥认证
+  authenticateWithPasskey(authenticationData) {
+    return api.post('/passkey/authenticate', authenticationData)
+  },
+
+  // 获取用户通行密钥列表
+  getUserPasskeys() {
+    return api.get('/passkey/user-passkeys')
+  },
+
+  // 删除通行密钥
+  deletePasskey(passkeyId) {
+    return api.delete(`/passkey/${passkeyId}`)
+  },
+
   // 获取nonce种子
   getNonceSeed() {
     return api.get('/auth/nonce-seed')

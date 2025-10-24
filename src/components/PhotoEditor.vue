@@ -11,6 +11,18 @@
             显示原图
           </md-filled-tonal-button>
         </div>
+
+        <!-- 复制和下载按钮 -->
+        <div class="action-buttons" :class="{ 'show': showActionButtons }">
+          <md-filled-tonal-button @click="copyToClipboard" class="action-button">
+            <md-icon slot="icon">content_copy</md-icon>
+            复制
+          </md-filled-tonal-button>
+          <md-filled-tonal-button @click="downloadImage" class="action-button">
+            <md-icon slot="icon">download</md-icon>
+            下载
+          </md-filled-tonal-button>
+        </div>
       </div>
     </div>
 
@@ -222,6 +234,7 @@ const tagInput = ref(null)
 const isTagSuggestionsClosing = ref(false)
 const isFolderSuggestionsClosing = ref(false)
 const showOriginalButton = ref(false)
+const showActionButtons = ref(false)
 const isShowingOriginal = ref(false)
 const currentImageUrl = ref('')
 // 折叠展开状态
@@ -295,10 +308,12 @@ const toggleOriginalImage = () => {
 
 const handleMouseEnter = () => {
   showOriginalButton.value = true
+  showActionButtons.value = true
 }
 
 const handleMouseLeave = () => {
   showOriginalButton.value = false
+  showActionButtons.value = false
 }
 
 // 监听 photo 变化，更新图片 URL
@@ -306,10 +321,12 @@ watch(() => props.photo, (newPhoto) => {
   if (newPhoto) {
     isShowingOriginal.value = false
     showOriginalButton.value = false
+    showActionButtons.value = false
     currentImageUrl.value = getImageUrl(newPhoto)
   } else {
     isShowingOriginal.value = false
     showOriginalButton.value = false
+    showActionButtons.value = false
     currentImageUrl.value = ''
   }
 }, { immediate: true })
@@ -892,6 +909,48 @@ const parseCustomDateString = (dateString) => {
   return dateObject;
 }
 
+// 复制图片到剪贴板
+const copyToClipboard = async () => {
+  if (!props.photo) return
+
+  try {
+    const response = await fetch(currentImageUrl.value)
+    const blob = await response.blob()
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [blob.type]: blob
+      })
+    ])
+
+    // 显示成功通知
+    photoStore.showNotification('图片已复制到剪贴板', 'success')
+  } catch (error) {
+    console.error('复制失败:', error)
+    photoStore.showNotification('复制失败，请重试', 'error')
+  }
+}
+
+// 下载图片
+const downloadImage = () => {
+  if (!props.photo) return
+
+  try {
+    const link = document.createElement('a')
+    link.href = currentImageUrl.value
+    link.download = getFileName(props.photo.filePath) || 'image.jpg'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // 显示成功通知
+    photoStore.showNotification('图片下载中...', 'success')
+  } catch (error) {
+    console.error('下载失败:', error)
+    photoStore.showNotification('下载失败，请重试', 'error')
+  }
+}
+
 </script>
 
 <style scoped>
@@ -1135,6 +1194,29 @@ const parseCustomDateString = (dateString) => {
 .original-image-button.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* 复制和下载按钮 */
+.action-buttons {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(10px);
+}
+
+.action-buttons.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.action-button {
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .no-photo {
