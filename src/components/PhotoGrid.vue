@@ -8,53 +8,93 @@
       </div>
     </div>
 
-    <!-- 瀑布流图片展示 -->
-    <div v-if="!isLoading" class="masonry-grid" ref="gridContainer">
-      <div
-        v-for="photo in photos"
-        :key="photo.id"
-        class="masonry-item"
-        @click="openPhotoDetail(photo)"
+    <!-- masonry布局图片展示 -->
+    <div v-if="!isLoading" class="masonry-container" ref="gridContainer">
+      <MasonryWall
+        :items="photos"
+        :ssr-columns="4"
+        :column-width="300"
+        :gap="16"
+        :min-columns="1"
+        :max-columns="6"
+        :rtl="false"
+        :scroll-container="scrollContainer"
+        v-slot="{ item: photo, index }"
       >
-        <img :src="getImageUrl(photo)" :alt="photo.title" />
-        <div class="photo-overlay">
-          <div class="photo-info">
-            <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
-            <div class="photo-meta">
-              <span class="meta-item">{{ formatDate(photo.date) }}</span>
-              <span class="meta-item">{{ formatFileSize(photo.fileSizeKB) }}</span>
+        <div
+          class="masonry-item"
+          @click="openPhotoDetail(photo)"
+        >
+          <div class="image-wrapper">
+            <img
+              v-if="imageStatus[photo.id] !== 'error'"
+              :src="getImageUrl(photo)"
+              :alt="photo.title"
+              loading="lazy"
+              @load="handleImageLoad(photo.id)"
+              @error="handleImageError(photo.id)"
+              :class="{'image-loading': imageStatus[photo.id] === 'loading'}"
+              style="display: block; width: 100%; height: auto;"
+            />
+            <!-- 加载中动画 -->
+            <div v-if="imageStatus[photo.id] === 'loading'" class="img-loading-indicator">
+              <md-circular-progress indeterminate size="small" />
             </div>
-            <div class="tags">
-              <md-assist-chip
-                v-for="tag in photo.tags.slice(0, 2)"
-                :key="tag"
-                :label="tag"
-                size="small"
-                :class="getTagColorClass(tag)"
-                @click="handleTagClick(tag, $event)"
-              />
-              <md-assist-chip
-                v-if="photo.tags.length > 2"
-                :label="'+' + (photo.tags.length - 2)"
-                size="small"
-              />
+            <!-- 加载失败占位 -->
+            <div v-if="imageStatus[photo.id] === 'error'" class="img-error-indicator">
+              <md-icon>broken_image</md-icon>
+            </div>
+          </div>
+          <div class="photo-overlay">
+            <div class="photo-info">
+              <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
+              <div class="photo-meta">
+                <span class="meta-item">{{ formatDate(photo.date) }}</span>
+                <span class="meta-item">{{ formatFileSize(photo.fileSizeKB) }}</span>
+              </div>
+              <div class="tags">
+                <md-assist-chip
+                  v-for="tag in photo.tags.slice(0, 2)"
+                  :key="tag"
+                  :label="tag"
+                  size="small"
+                  :class="getTagColorClass(tag)"
+                  @click="handleTagClick(tag, $event)"
+                />
+                <md-assist-chip
+                  v-if="photo.tags.length > 2"
+                  :label="'+' + (photo.tags.length - 2)"
+                  size="small"
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        <!-- 在MasonryWall内部放置哨兵元素 -->
+        <div v-if="index === photos.length - 1 || photos.length === 0" ref="sentinel" class="load-more-sentinel"></div>
+      </MasonryWall>
     </div>
 
     <!-- 加载更多状态 -->
     <div v-if="isLoadMore" class="load-more-state">
       <div class="load-more-content">
-        <md-circular-progress indeterminate></md-circular-progress>
+        <div class="loading-animation">
+          <div class="loading-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
         <p class="md-typescale-body-medium load-more-text">正在加载更多照片...</p>
       </div>
     </div>
 
     <!-- 没有更多数据提示 -->
     <div v-if="!hasMore && photos.length > 0" class="no-more-state">
-      <p class="md-typescale-body-medium no-more-text">没有更多照片了</p>
+      <div class="no-more-content">
+        <md-icon class="no-more-icon">check_circle</md-icon>
+        <p class="md-typescale-body-medium no-more-text">已经到底了，没有更多照片了</p>
+      </div>
     </div>
 
     <!-- 空状态 -->
@@ -67,7 +107,8 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import MasonryWall from '@yeger/vue-masonry-wall'
 import API_CONFIG from '@/config/api'
 
 const props = defineProps({
@@ -93,16 +134,50 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['open-photo-detail', 'load-more', 'tag-click'])
+const emit = defineEmits(['open-photo-detail', 'load-more', 'tag-click', 'ready'])
 
 const gridContainer = ref(null)
 let observer = null
+const sentinel = ref(null)
+
+// 获取滚动容器，优先使用父级容器，否则使用window
+const scrollContainer = ref(null)
+
+// 图片加载状态管理
+const imageStatus = ref({}) // { [photo.id]: 'loading' | 'loaded' | 'error' }
+
+// 监听 photos，初始化每张图片的加载状态
+watch(() => props.photos, (newPhotos) => {
+  const newIds = newPhotos.map(p => p.id);
+  // 添加新的
+  newPhotos.forEach(photo => {
+    if (!(photo.id in imageStatus.value)) {
+      imageStatus.value[photo.id] = 'loading';
+    }
+  });
+  // 移除不存在的
+  Object.keys(imageStatus.value).forEach(id => {
+    if (!newIds.includes(id)) {
+      delete imageStatus.value[id];
+    }
+  });
+}, { immediate: true });
+
+const handleImageLoad = (photoId) => {
+  imageStatus.value[photoId] = 'loaded'
+}
+const handleImageError = (photoId) => {
+  imageStatus.value[photoId] = 'error'
+}
 
 // 设置 Intersection Observer 监听滚动到底部
 const setupIntersectionObserver = () => {
-  if (!gridContainer.value) return
+  if (!sentinel.value) return
+  if (observer) observer.disconnect()
 
-  // 创建 Intersection Observer
+  // 使用检测到的滚动容器作为根元素
+  const root = scrollContainer.value || null
+
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -112,27 +187,72 @@ const setupIntersectionObserver = () => {
       })
     },
     {
-      root: null,
-      rootMargin: '100px', // 提前100px触发加载
-      threshold: 0.1
+      root: root,
+      rootMargin: '300px', // 提前触发
+      threshold: 0.01
     }
   )
 
-  // 创建一个哨兵元素来检测是否滚动到底部
-  const sentinel = document.createElement('div')
-  sentinel.className = 'load-more-sentinel'
-  gridContainer.value.appendChild(sentinel)
-  observer.observe(sentinel)
+  // 确保观察的是最新的sentinel元素
+  if (sentinel.value) {
+    observer.observe(sentinel.value)
+  }
 }
-
 onMounted(() => {
-  setupIntersectionObserver()
+  // 设置滚动容器为最近的滚动父元素
+  if (gridContainer.value) {
+    let parent = gridContainer.value.parentElement
+    while (parent && parent !== document.body) {
+      const style = window.getComputedStyle(parent)
+      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+        scrollContainer.value = parent
+        break
+      }
+      parent = parent.parentElement
+    }
+  }
+
+  // 延迟设置Intersection Observer，确保MasonryWall已经渲染完成
+  setTimeout(() => {
+    setupIntersectionObserver()
+  }, 500)
+})
+
+// 当照片数量变化时重新设置观察器
+watch(() => props.photos.length, () => {
+  // 延迟设置，确保MasonryWall布局已经更新
+  setTimeout(() => {
+    setupIntersectionObserver()
+  }, 100)
 })
 
 onUnmounted(() => {
   if (observer) {
     observer.disconnect()
   }
+})
+
+// 公开方法：重新配置Intersection Observer
+const reconfigureObserver = () => {
+  console.log('🔄 Reconfiguring Intersection Observer')
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  setupIntersectionObserver()
+}
+
+// 组件就绪时通知父组件
+defineExpose({
+  reconfigureObserver
+})
+
+// 组件挂载完成后通知父组件
+onMounted(() => {
+  // 延迟通知，确保组件完全就绪
+  setTimeout(() => {
+    emit('ready')
+  }, 600)
 })
 
 // 计算加载文本
@@ -154,9 +274,7 @@ const openPhotoDetail = (photo) => {
 }
 
 const handleTagClick = (tag, event) => {
-  // 阻止事件冒泡，避免触发图片点击事件
   event.stopPropagation()
-  // 发射 tag-click 事件
   emit('tag-click', tag)
 }
 
@@ -181,7 +299,6 @@ const formatDate = (dateString) => {
 // 格式化文件大小
 const formatFileSize = (fileSizeKB) => {
   if (!fileSizeKB) return ''
-
   if (fileSizeKB < 1024) {
     return `${fileSizeKB} KB`
   } else {
@@ -192,28 +309,18 @@ const formatFileSize = (fileSizeKB) => {
 
 const getImageUrl = (photo) => {
   if (!photo) return ''
-
-  // 优先使用压缩图片路径
   let url = photo.compressedFilePath || photo.filePath
-
   if (!url) return ''
-
-  // 如果已经是完整 URL，直接返回
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
     return url
   }
-
-  // 如果是相对路径，拼接后端 API 地址
   if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
     return `${API_CONFIG.BASE_URL}${url}`
   }
-
-  // 其他情况直接返回
   return url
 }
 
 const getTagColorClass = (tag) => {
-  // 预定义一组颜色类名
   const colorClasses = [
     'tag-color-art',
     'tag-color-abstract',
@@ -226,15 +333,11 @@ const getTagColorClass = (tag) => {
     'tag-color-modern',
     'tag-color-photo'
   ]
-
-  // 根据标签字符串生成一个稳定的哈希值
   let hash = 0
   for (let i = 0; i < tag.length; i++) {
     hash = ((hash << 5) - hash) + tag.charCodeAt(i)
-    hash = hash & hash // 转换为32位整数
+    hash = hash & hash
   }
-
-  // 使用哈希值选择颜色类名
   const index = Math.abs(hash) % colorClasses.length
   return colorClasses[index]
 }
@@ -262,27 +365,69 @@ const getTagColorClass = (tag) => {
   text-align: center;
 }
 
-/* 瀑布流样式 */
-.masonry-grid {
+/* masonry布局样式 */
+.masonry-container {
   padding: 24px;
-  column-count: 4;
-  column-gap: 16px;
 }
 
 .masonry-item {
-  break-inside: avoid;
-  margin-bottom: 16px;
   cursor: pointer;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--md-sys-elevation-level1);
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
+  margin-bottom: 16px;
 }
 
 .masonry-item:hover {
   transform: translateY(-2px);
   box-shadow: var(--md-sys-elevation-level3);
+}
+
+/* 图片加载中和失败效果 */
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 120px;
+  background: var(--md-sys-color-surface-container-low, #1d1b20);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.img-loading-indicator {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.6);
+  border-radius: 50%;
+  padding: 12px;
+}
+
+.img-error-indicator {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.img-error-icon {
+  font-size: 36px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.img-error-text {
+  font-size: 14px;
+  opacity: 0.7;
 }
 
 .masonry-item img {
@@ -334,30 +479,124 @@ const getTagColorClass = (tag) => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px 24px;
+  padding: 60px 24px;
+  animation: fadeInUp 0.5s ease-out;
 }
 
 .load-more-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
+}
+
+/* 加载动画 */
+.loading-animation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.16s;
 }
 
 .load-more-text {
   color: var(--md-sys-color-on-surface-variant);
   text-align: center;
+  font-weight: 500;
+  animation: pulse 2s infinite;
 }
 
 /* 没有更多数据提示 */
 .no-more-state {
   text-align: center;
-  padding: 40px 24px;
+  padding: 60px 24px;
   color: var(--md-sys-color-on-surface-variant);
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.no-more-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.no-more-icon {
+  font-size: 48px;
+  color: var(--md-sys-color-primary);
+  animation: checkmark 0.6s ease-out;
 }
 
 .no-more-text {
-  opacity: 0.7;
+  opacity: 0.8;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* 动画关键帧 */
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes checkmark {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* 哨兵元素 - 用于检测滚动 */
@@ -379,22 +618,4 @@ const getTagColorClass = (tag) => {
   opacity: 0.5;
 }
 
-/* 响应式设计 */
-@media (max-width: 1200px) {
-  .masonry-grid {
-    column-count: 3;
-  }
-}
-
-@media (max-width: 768px) {
-  .masonry-grid {
-    column-count: 2;
-  }
-}
-
-@media (max-width: 480px) {
-  .masonry-grid {
-    column-count: 1;
-  }
-}
 </style>

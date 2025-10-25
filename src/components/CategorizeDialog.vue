@@ -5,7 +5,7 @@
         <div class="dialog-container" @click.stop>
           <div class="dialog-header">
             <h2 class="md-typescale-headline-small">
-              分类进度 ({{ currentIndex + 1 }}/{{ uncategorizedPhotos.length }})
+              分类进度 ({{ currentIndex + 1 }}/{{ totalUncategorizedCount || uncategorizedPhotos.length }})
             </h2>
             <md-icon-button @click="closeDialog" class="close-btn">
               <span class="material-symbols-outlined">close</span>
@@ -60,6 +60,10 @@ const props = defineProps({
   uncategorizedPhotos: {
     type: Array,
     default: () => []
+  },
+  totalUncategorizedCount: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -196,10 +200,45 @@ const handleNext = () => {
 }
 
 const goToNext = () => {
+  console.log(`📊 Going to next photo: currentIndex=${currentIndex.value}, cachedPhotos=${props.uncategorizedPhotos.length}, totalCount=${props.totalUncategorizedCount}`)
+
+  // 检查是否超出当前缓存范围
   if (currentIndex.value < props.uncategorizedPhotos.length - 1) {
+    // 还在缓存范围内，直接前进
     currentIndex.value++
+    console.log('➡️ Moving within cached photos')
   } else {
-    // 已经是最后一张，关闭对话框
+    // 超出缓存范围，检查是否还有更多数据
+    if (photoStore.uncategorizedHasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
+      // 还有更多数据，加载下一页
+      console.log('📥 Need to load next page - beyond cached range')
+      loadNextPage()
+    } else {
+      // 已经是最后一张，关闭对话框
+      console.log('🏁 Reached the end - closing dialog')
+      closeDialog()
+    }
+  }
+}
+
+// 加载下一页未分类照片
+const loadNextPage = async () => {
+  try {
+    console.log('📥 Loading next page of uncategorized photos...')
+    const loadedCount = await photoStore.loadMoreUncategorizedPhotos()
+
+    if (loadedCount > 0) {
+      // 加载成功后前进到下一张
+      currentIndex.value++
+      console.log(`✅ Loaded ${loadedCount} more photos, now at index ${currentIndex.value}`)
+    } else {
+      // 没有更多数据，关闭对话框
+      console.log('❌ No more photos to load')
+      closeDialog()
+    }
+  } catch (error) {
+    console.error('Failed to load next page:', error)
+    // 加载失败时也关闭对话框
     closeDialog()
   }
 }

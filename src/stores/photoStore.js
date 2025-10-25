@@ -29,12 +29,16 @@ export const usePhotoStore = defineStore('photos', {
     currentPage: 1,
     hasMore: true,
     isLoadMore: false,
+    // 未分类页面分页状态
+    uncategorizedCurrentPage: 1,
+    totalUncategorizedCount: 0,
     // 筛选状态
     currentFilters: {
       tags: [],
       folder: null,
       location: null,
-      searchQuery: ''
+      searchQuery: '',
+      sortBy: 'date-desc'
     }
   }),
 
@@ -253,7 +257,8 @@ export const usePhotoStore = defineStore('photos', {
         tags: [],
         folder: null,
         location: null,
-        searchQuery: ''
+        searchQuery: '',
+        sortBy: 'date-desc'
       }
     },
 
@@ -342,13 +347,25 @@ export const usePhotoStore = defineStore('photos', {
       }
     },
 
-    // 获取未分类照片
+    // 获取未分类照片（第一页）
     async getUncategorizedPhotos() {
       try {
         this.setLoadingState('photos', true)
         this.error = null
-        const response = await photoApi.getUncategorizedPhotos()
+        this.uncategorizedCurrentPage = 1
+        this.hasMore = true
+
+        const response = await photoApi.getUncategorizedPhotos(1, 20)
         this.photos = response.data || []
+
+        // 存储总数量信息（如果后端返回了的话）
+        this.totalUncategorizedCount = response.pagination.total
+
+        // 如果返回的照片数量小于请求的数量，说明没有更多数据了
+        if (this.photos.length < 20) {
+          this.hasMore = false
+        }
+
         return this.photos
       } catch (error) {
         this.error = error.message
@@ -357,6 +374,44 @@ export const usePhotoStore = defineStore('photos', {
         throw error
       } finally {
         this.setLoadingState('photos', false)
+      }
+    },
+
+    // 加载更多未分类照片
+    async loadMoreUncategorizedPhotos() {
+      if (this.isLoadMore || !this.hasMore) return
+
+      try {
+        this.isLoadMore = true
+        const nextPage = this.uncategorizedCurrentPage + 1
+
+        const response = await photoApi.getUncategorizedPhotos(nextPage, 20)
+        const newPhotos = response.data || []
+
+        // 更新总数量信息（如果后端返回了的话）
+        if (response.total !== undefined) {
+          this.totalUncategorizedCount = response.total
+        }
+
+        if (newPhotos.length > 0) {
+          this.photos = [...this.photos, ...newPhotos]
+          this.uncategorizedCurrentPage = nextPage
+
+          // 如果返回的照片数量小于请求的数量，说明没有更多数据了
+          if (newPhotos.length < 20) {
+            this.hasMore = false
+          }
+        } else {
+          this.hasMore = false
+        }
+
+        return newPhotos.length
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to load more uncategorized photos:', error)
+        throw error
+      } finally {
+        this.isLoadMore = false
       }
     },
 

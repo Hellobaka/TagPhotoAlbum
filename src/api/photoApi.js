@@ -146,6 +146,10 @@ export const photoApi = {
     if (filters.searchQuery) {
       params.q = filters.searchQuery
     }
+    // 添加排序参数
+    if (filters.sortBy) {
+      params.sortBy = filters.sortBy
+    }
 
     return api.get('/photos', { params })
   },
@@ -210,9 +214,10 @@ export const photoApi = {
     })
   },
 
-  // 获取未分类照片
-  getUncategorizedPhotos() {
-    return api.get('/photos/uncategorized')
+  // 获取未分类照片（支持分页）
+  getUncategorizedPhotos(page = 1, limit = 20) {
+    const params = { page, limit }
+    return api.get('/photos/uncategorized', { params })
   },
 
 }

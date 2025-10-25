@@ -57,8 +57,7 @@
               >
                 <span
                   class="material-symbols-outlined refresh-icon"
-                  :class="{ 'refreshing': isRefreshing }"
-                >
+                  :class="{ 'refreshing': isRefreshing }">
                   refresh
                 </span>
               </md-icon-button>
@@ -80,6 +79,21 @@
                     <span class="material-symbols-outlined">close</span>
                   </md-icon-button>
                 </md-outlined-text-field>
+              </div>
+              <!-- 排序下拉菜单 -->
+              <div class="sort-dropdown">
+                <md-outlined-select
+                  v-model="sortBy"
+                  label="排序方式"
+                  @change="handleSortChange"
+                >
+                  <md-select-option value="date-desc">最新上传</md-select-option>
+                  <md-select-option value="date-asc">最早上传</md-select-option>
+                  <md-select-option value="title-asc">标题A-Z</md-select-option>
+                  <md-select-option value="title-desc">标题Z-A</md-select-option>
+                  <md-select-option value="size-desc">文件大小(大→小)</md-select-option>
+                  <md-select-option value="size-asc">文件大小(小→大)</md-select-option>
+                </md-outlined-select>
               </div>
               <!-- 上传按钮 -->
               <md-filled-button
@@ -123,6 +137,7 @@
 
         <!-- 瀑布流图片展示 -->
         <PhotoGrid
+          ref="photoGridRef"
           :photos="filteredPhotos"
           :is-loading="isLoading"
           :loading-type="loadingType"
@@ -131,6 +146,7 @@
           @open-photo-detail="openPhotoDetail"
           @load-more="handleLoadMore"
           @tag-click="handleTagClickFromGrid"
+          @ready="handlePhotoGridReady"
         />
       </div>
     </div>
@@ -146,6 +162,7 @@
     <CategorizeDialog
       :is-open="isCategorizing"
       :uncategorized-photos="photoStore.uncategorizedPhotos"
+      :total-uncategorized-count="photoStore.totalUncategorizedCount"
       @close="stopCategorization"
       @save-and-next="handleSaveAndNext"
       @next="handleNext"
@@ -176,11 +193,13 @@ const selectedTags = ref([])
 const selectedFolder = ref(null)
 const selectedLocation = ref(null)
 const searchQuery = ref('')
+const sortBy = ref('date-desc') // 默认按最新上传排序
 const isCategorizing = ref(false)
 const showUploadZone = ref(false)
 const isClosingUploadZone = ref(false)
 const isRefreshing = ref(false)
 const isMobile = ref(false)
+const photoGridRef = ref(null)
 
 // 标签页配置
 const tabs = [
@@ -247,6 +266,7 @@ const setActiveTab = async (tabId) => {
   selectedFolder.value = null
   selectedLocation.value = null
   searchQuery.value = ''
+  sortBy.value = 'date-desc' // 重置为默认排序
 
   try {
     // 根据标签页类型刷新数据
@@ -267,6 +287,14 @@ const setActiveTab = async (tabId) => {
   } catch (error) {
     console.error(`Failed to load data for tab ${tabId}:`, error)
   }
+
+  // 延迟重新配置PhotoGrid的Intersection Observer
+  setTimeout(() => {
+    if (photoGridRef.value) {
+      console.log('🔄 Reconfiguring PhotoGrid observer after tab switch')
+      photoGridRef.value.reconfigureObserver()
+    }
+  }, 300)
 }
 
 const toggleTag = async (tag) => {
@@ -300,6 +328,7 @@ const clearAllFilters = async () => {
   selectedFolder.value = null
   selectedLocation.value = null
   searchQuery.value = ''
+  sortBy.value = 'date-desc' // 重置为默认排序
 
   // 清除筛选并重新加载
   await applyFilters()
@@ -309,6 +338,12 @@ const clearSearch = async () => {
   searchQuery.value = ''
 
   // 应用筛选
+  await applyFilters()
+}
+
+// 处理排序变更
+const handleSortChange = async () => {
+  // 应用筛选（包含排序）
   await applyFilters()
 }
 
@@ -323,7 +358,8 @@ const applyFilters = async () => {
       tags: selectedTags.value,
       folder: selectedFolder.value,
       location: selectedLocation.value,
-      searchQuery: searchQuery.value
+      searchQuery: searchQuery.value,
+      sortBy: sortBy.value
     }
 
     await photoStore.applyFilters(filters)
@@ -439,18 +475,40 @@ const handleTagClickFromGrid = async (tag) => {
   }
 }
 
+// 处理PhotoGrid组件就绪事件
+const handlePhotoGridReady = () => {
+  console.log('✅ PhotoGrid is ready')
+}
+
+// 处理未分类页面的加载更多
+const handleLoadMoreUncategorized = async () => {
+  try {
+    const loadedCount = await photoStore.loadMoreUncategorizedPhotos()
+    if (loadedCount > 0) {
+      // notificationStore.showSuccess(`已加载 ${loadedCount} 张新照片`)
+    }
+  } catch (error) {
+    console.error('Failed to load more uncategorized photos:', error)
+    notificationStore.showError('加载更多照片失败')
+  }
+}
+
 // 懒加载更多照片
 const handleLoadMore = async () => {
-  if (activeTab.value === 'recommend' || activeTab.value === 'uncategorized') {
-    // 推荐和未分类页面不支持懒加载
+  if (activeTab.value === 'recommend') {
+    // 推荐页面不支持懒加载
+    return
+  }
+
+  if (activeTab.value === 'uncategorized') {
+    // 未分类页面使用专门的加载方法
+    await handleLoadMoreUncategorized()
     return
   }
 
   try {
     const loadedCount = await photoStore.loadMorePhotos()
-    if (loadedCount > 0) {
-      notificationStore.showSuccess(`已加载 ${loadedCount} 张新照片`)
-    }
+    // 移除成功通知，避免频繁弹窗
   } catch (error) {
     console.error('Failed to load more photos:', error)
     notificationStore.showError('加载更多照片失败')
@@ -596,6 +654,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.sort-dropdown {
+  min-width: 160px;
 }
 
 .upload-button {
@@ -819,6 +881,10 @@ onUnmounted(() => {
   }
   .search-box {
     min-width: auto;
+  }
+  .sort-dropdown {
+    min-width: auto;
+    width: 100%;
   }
   .global-upload-zone {
     padding: 20px;
