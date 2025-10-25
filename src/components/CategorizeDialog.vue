@@ -170,7 +170,7 @@ const goToNext = (i) => {
       currentIndex.value++
     } else {
       // 超出缓存范围，检查是否还有更多数据
-      if (photoStore.uncategorizedHasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
+      if (photoStore.hasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
         // 还有更多数据，加载下一页
         loadNextPage()
       } else {

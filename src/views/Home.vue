@@ -447,6 +447,10 @@ const stopCategorization = () => {
 const handleSaveAndNext = async (photoData) => {
   try {
     await photoStore.updatePhoto(photoData)
+
+    // 更新标签计数
+    await photoStore.getTagsData()
+
     // 自动进入下一张
   } catch (error) {
     console.error('保存图片信息失败:', error)
