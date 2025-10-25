@@ -36,7 +36,7 @@
             <md-text-button
               @click="confirm"
               style="padding-left: 15px; padding-right: 15px;"
-              :disabled="!deviceName.trim() || props.loading"
+              :disabled="!deviceName.trim() || props.loading || isPasskeySupported"
             >
               <span v-if="!props.loading">确认</span>
               <span v-else>正在保存...</span>
@@ -49,7 +49,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 
 const props = defineProps({
   show: {
@@ -66,6 +66,16 @@ const emit = defineEmits(['confirm', 'close'])
 
 // 响应式数据
 const deviceName = ref('')
+const isPasskeySupported = ref(false)
+
+// 检查 WebAuthn 支持
+const checkPasskeySupport = () => {
+  isPasskeySupported.value =
+    window.PublicKeyCredential &&
+    typeof window.PublicKeyCredential === 'function' &&
+    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&
+    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
+}
 
 // 监听显示状态变化
 watch(() => props.show, (newValue) => {
@@ -86,6 +96,9 @@ const confirm = () => {
     deviceName.value = ''
   }
 }
+onMounted(() => {
+  checkPasskeySupport()
+})
 </script>
 
 <style scoped>

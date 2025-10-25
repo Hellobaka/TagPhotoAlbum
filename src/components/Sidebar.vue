@@ -141,28 +141,7 @@ const router = useRouter()
 
 // 响应式数据
 const hasPasskey = ref(false)
-const isPasskeySupported = ref(false)
 const showPasskeyManagementDialog = ref(false)
-
-// 检查 WebAuthn 支持
-const checkPasskeySupport = () => {
-  isPasskeySupported.value =
-    window.PublicKeyCredential &&
-    typeof window.PublicKeyCredential === 'function' &&
-    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&
-    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
-}
-
-// 检查用户是否已有通行密钥
-const checkUserPasskeys = async () => {
-  try {
-    const response = await photoApi.getUserPasskeys()
-    hasPasskey.value = response.data && response.data.length > 0
-  } catch (error) {
-    console.error('Failed to check user passkeys:', error)
-    hasPasskey.value = false
-  }
-}
 
 // 监听标签页变化，按需加载筛选数据
 watch(() => props.activeTab, async (newTab) => {
@@ -224,9 +203,6 @@ onMounted(() => {
   if (!props.isCollapsed) {
     loadFilterData(props.activeTab)
   }
-
-  // 只检查浏览器支持，不自动检查通行密钥状态
-  checkPasskeySupport()
 })
 
 // 方法

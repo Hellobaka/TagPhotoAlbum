@@ -38,7 +38,8 @@ export const usePhotoStore = defineStore('photos', {
       folder: null,
       location: null,
       searchQuery: '',
-      sortBy: 'date-desc'
+      sortBy: 'date',
+      sortOrder: 'desc'
     }
   }),
 
@@ -258,7 +259,8 @@ export const usePhotoStore = defineStore('photos', {
         folder: null,
         location: null,
         searchQuery: '',
-        sortBy: 'date-desc'
+        sortBy: 'date',
+        sortOrder: 'desc'
       }
     },
 

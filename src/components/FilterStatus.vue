@@ -17,11 +17,11 @@
     </div>
     <!-- 排序下拉菜单 -->
     <div class="sort-dropdown">
-      <md-outlined-select v-model="sortBy" label="排序方式" @change="handleSortChange">
+      <md-outlined-select ref="sortItem" label="排序方式" @change="handleSortChange">
         <md-select-option value="date-desc">最新上传</md-select-option>
         <md-select-option value="date-asc">最早上传</md-select-option>
-        <md-select-option value="title-asc">标题A-Z</md-select-option>
-        <md-select-option value="title-desc">标题Z-A</md-select-option>
+        <md-select-option value="filename-asc">文件名A-Z</md-select-option>
+        <md-select-option value="filename-desc">文件名Z-A</md-select-option>
         <md-select-option value="size-desc">文件大小(大→小)</md-select-option>
         <md-select-option value="size-asc">文件大小(小→大)</md-select-option>
       </md-outlined-select>
@@ -30,7 +30,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+const sortItem = ref(null)
 
 const props = defineProps({
   selectedTags: {
@@ -48,6 +49,14 @@ const props = defineProps({
   searchQuery: {
     type: String,
     default: ''
+  },
+  sortBy: {
+    type: String,
+    default: 'date'
+  },
+  sortOrder: {
+    type: String,
+    default: 'desc'
   }
 })
 
@@ -56,12 +65,23 @@ const emit = defineEmits([
   'select-folder',
   'select-location',
   'clear-search',
-  'clear-all-filters'
+  'clear-all-filters',
+  'sort-change'
 ])
 
 // 计算属性
 const hasActiveFilters = computed(() => {
   return props.selectedTags.length > 0 || props.selectedFolder || props.selectedLocation || props.searchQuery
+})
+
+// 当前排序选项（用于下拉菜单）
+const currentSortOption = computed({
+  get: () => {
+    return `${props.sortBy}-${props.sortOrder}`
+  },
+  set: (value) => {
+    // 当用户选择时，通过handleSortChange处理
+  }
 })
 
 // 方法
@@ -86,6 +106,13 @@ const clearAllFilters = () => {
 }
 
 const handleSortChange = async () => {
+  const sort_by = sortItem.value.value
+  // 解析排序选项，格式为 "sortBy-sortOrder"
+  const [sortBy, sortOrder] = sort_by.split('-')
+  props.sortBy = sortBy
+  props.sortOrder = sortOrder
+  // 触发排序变更事件
+  emit('sort-change', { sortBy, sortOrder })
 }
 </script>
 

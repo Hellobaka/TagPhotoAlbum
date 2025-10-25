@@ -1,5 +1,8 @@
+import { fileURLToPath, URL } from 'node:url'
+
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import vueDevTools from 'vite-plugin-vue-devtools'
 
 export default defineConfig({
   plugins: [vue({
@@ -8,13 +11,27 @@ export default defineConfig({
         isCustomElement: (tag) => tag.startsWith('md-')
       }
     }
-  })],
+  }),
+    vueDevTools(),
+  ],
   server: {
-    port: 3000
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5085',
+        changeOrigin: true,
+        secure: false
+      },
+      '/external': {
+        target: 'http://localhost:5085',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   resolve: {
     alias: {
-      '@': '/src',
+      '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
   build: {

@@ -150,6 +150,9 @@ export const photoApi = {
     if (filters.sortBy) {
       params.sortBy = filters.sortBy
     }
+    if (filters.sortOrder) {
+      params.sortOrder = filters.sortOrder
+    }
 
     return api.get('/photos', { params })
   },
@@ -216,8 +219,8 @@ export const photoApi = {
 
   // 获取未分类照片（支持分页）
   getUncategorizedPhotos(page = 1, limit = 20) {
-    const params = { page, limit }
-    return api.get('/photos/uncategorized', { params })
+    const filter = { page, limit, folder: '未分类' }
+    return this.getPhotosPaginated(page, limit, filter)
   },
 
 }

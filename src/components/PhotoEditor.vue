@@ -14,10 +14,6 @@
 
         <!-- 复制和下载按钮 -->
         <div class="action-buttons" :class="{ 'show': showActionButtons }">
-          <md-filled-tonal-button @click="copyToClipboard" class="action-button">
-            <md-icon slot="icon">content_copy</md-icon>
-            复制
-          </md-filled-tonal-button>
           <md-filled-tonal-button @click="downloadImage" class="action-button">
             <md-icon slot="icon">download</md-icon>
             下载
@@ -178,6 +174,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
+import { useNotificationStore } from '@/stores/notificationStore'
 import API_CONFIG from '@/config/api'
 
 const props = defineProps({
@@ -247,6 +244,7 @@ const hideUndenfiedExif = ref(true)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
+const notificationStore = useNotificationStore()
 
 // 图片相关方法
 const getImageUrl = (photo) => {
@@ -909,41 +907,28 @@ const parseCustomDateString = (dateString) => {
   return dateObject;
 }
 
-// 复制图片到剪贴板
-const copyToClipboard = async () => {
+const downloadImage = async () => {
   if (!props.photo) return
 
   try {
-    const response = await fetch(currentImageUrl.value)
+    // 拉取图片内容
+    const response = await fetch(currentImageUrl.value, { mode: 'cors' })
+    if (!response.ok) throw new Error('图片下载失败')
+
     const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
 
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        [blob.type]: blob
-      })
-    ])
-
-    // 显示成功通知
-    photoStore.showNotification('图片已复制到剪贴板', 'success')
-  } catch (error) {
-    console.error('复制失败:', error)
-    photoStore.showNotification('复制失败，请重试', 'error')
-  }
-}
-
-// 下载图片
-const downloadImage = () => {
-  if (!props.photo) return
-
-  try {
+    // 创建下载链接
     const link = document.createElement('a')
-    link.href = currentImageUrl.value
+    link.href = url
     link.download = getFileName(props.photo.filePath) || 'image.jpg'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
 
-    // 显示成功通知
+    // 释放 blob url
+    URL.revokeObjectURL(url)
+
     photoStore.showNotification('图片下载中...', 'success')
   } catch (error) {
     console.error('下载失败:', error)
@@ -1012,7 +997,7 @@ const downloadImage = () => {
   max-height: 100%;
   position: relative;
   flex-shrink: 0;
-  height: 100%;
+  height: calc(90vh - 165px);
 }
 
 .bottom-content {

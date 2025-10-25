@@ -1,56 +1,8 @@
-<template>
-  <Transition name="dialog-fade">
-    <div v-if="isOpen" class="dialog-overlay" @click="closeDialog">
-      <Transition name="dialog-scale">
-        <div class="dialog-container" @click.stop>
-          <div class="dialog-header">
-            <h2 class="md-typescale-headline-small">
-              分类进度 ({{ currentIndex + 1 }}/{{ totalUncategorizedCount || uncategorizedPhotos.length }})
-            </h2>
-            <md-icon-button @click="closeDialog" class="close-btn">
-              <span class="material-symbols-outlined">close</span>
-            </md-icon-button>
-          </div>
-
-          <div class="dialog-content">
-            <PhotoEditor
-              :photo="currentPhoto"
-              :editable-photo="editablePhoto"
-              :new-tag="newTag"
-              :tags-to-remove="tagsToRemove"
-              :popular-tags="popularTags"
-              :all-folders="photoStore.allFolders"
-              :show-no-photo="!currentPhoto"
-              :no-photo-text="'没有更多未分类图片'"
-              @update:title="value => editablePhoto.title = value"
-              @update:description="value => editablePhoto.description = value"
-              @update:location="value => editablePhoto.location = value"
-              @update:folder="value => editablePhoto.folder = value"
-              @update:newTag="value => newTag = value"
-              @toggle-tag="toggleTag"
-              @toggle-tag-for-removal="toggleTagForRemoval"
-              @add-tag="addTag"
-            />
-          </div>
-
-          <div class="dialog-actions">
-            <md-text-button @click="closeDialog" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">关闭</md-text-button>
-            <md-text-button @click="handleNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">下一张</md-text-button>
-            <md-filled-button @click="handleSaveAndNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">
-              <span v-if="isSaving" class="loading-spinner"></span>
-              {{ isSaving ? '保存中...' : '保存并下一张' }}
-            </md-filled-button>
-          </div>
-        </div>
-      </Transition>
-    </div>
-  </Transition>
-</template>
-
 <script setup>
 import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 import PhotoEditor from '@/components/PhotoEditor.vue'
+import { useNotificationStore } from '../stores/notificationStore'
 
 const props = defineProps({
   isOpen: {
@@ -67,7 +19,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'save-and-next', 'next'])
+const emit = defineEmits(['close', 'save-and-next', 'next', 'last'])
 
 // 响应式数据
 const currentIndex = ref(0)
@@ -78,6 +30,7 @@ const tagsToRemove = ref([])
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
+const notificationStore = useNotificationStore()
 
 // 计算属性 - 获取常用标签及其使用次数
 const popularTags = computed(() => {
@@ -175,14 +128,16 @@ const handleSaveAndNext = async () => {
       editablePhoto.value.tags = editablePhoto.value.tags.filter(tag => !tagsToRemove.value.includes(tag))
       tagsToRemove.value = []
     }
-
+    if (editablePhoto.value.folder == '未分类') {
+      editablePhoto.value.folder = '默认'
+    }
     await emit('save-and-next', editablePhoto.value)
 
     // 清除当前分类照片，以便后续使用正常索引
     photoStore.currentCategorizePhoto = null
 
     await nextTick()
-    goToNext()
+    goToNext(1)
   } catch (error) {
     console.error('保存图片信息失败:', error)
   } finally {
@@ -196,27 +151,35 @@ const handleNext = () => {
   // 清除当前分类照片，以便后续使用正常索引
   photoStore.currentCategorizePhoto = null
 
-  goToNext()
+  goToNext(1)
 }
 
-const goToNext = () => {
-  console.log(`📊 Going to next photo: currentIndex=${currentIndex.value}, cachedPhotos=${props.uncategorizedPhotos.length}, totalCount=${props.totalUncategorizedCount}`)
+const handleLast = () => {
+  // 清除当前分类照片，以便后续使用正常索引
+  photoStore.currentCategorizePhoto = null
 
-  // 检查是否超出当前缓存范围
-  if (currentIndex.value < props.uncategorizedPhotos.length - 1) {
-    // 还在缓存范围内，直接前进
-    currentIndex.value++
-    console.log('➡️ Moving within cached photos')
-  } else {
-    // 超出缓存范围，检查是否还有更多数据
-    if (photoStore.uncategorizedHasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
-      // 还有更多数据，加载下一页
-      console.log('📥 Need to load next page - beyond cached range')
-      loadNextPage()
+  goToNext(-1)
+}
+
+const goToNext = (i) => {
+  const nextIndex = currentIndex.value + i
+  if (i > 0) {
+    // 检查是否超出当前缓存范围
+    if (nextIndex < props.uncategorizedPhotos.length - 1) {
+      // 还在缓存范围内，直接前进
+      currentIndex.value++
     } else {
-      // 已经是最后一张，关闭对话框
-      console.log('🏁 Reached the end - closing dialog')
-      closeDialog()
+      // 超出缓存范围，检查是否还有更多数据
+      if (photoStore.uncategorizedHasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
+        // 还有更多数据，加载下一页
+        loadNextPage()
+      } else {
+        notificationStore.showError('没有更多数据了')
+      }
+    }
+  } else {
+    if(nextIndex >= 0) {
+      currentIndex.value = currentIndex.value - 1
     }
   }
 }
@@ -243,6 +206,56 @@ const loadNextPage = async () => {
   }
 }
 </script>
+
+<template>
+  <Transition name="dialog-fade">
+    <div v-if="isOpen" class="dialog-overlay" @click="closeDialog">
+      <Transition name="dialog-scale">
+        <div class="dialog-container" @click.stop>
+          <div class="dialog-header">
+            <h2 class="md-typescale-headline-small">
+              分类进度 ({{ currentIndex + 1 }}/{{ totalUncategorizedCount || uncategorizedPhotos.length }})
+            </h2>
+            <md-icon-button @click="closeDialog" class="close-btn">
+              <span class="material-symbols-outlined">close</span>
+            </md-icon-button>
+          </div>
+
+          <div class="dialog-content">
+            <PhotoEditor
+              :photo="currentPhoto"
+              :editable-photo="editablePhoto"
+              :new-tag="newTag"
+              :tags-to-remove="tagsToRemove"
+              :popular-tags="popularTags"
+              :all-folders="photoStore.allFolders"
+              :show-no-photo="!currentPhoto"
+              :no-photo-text="'没有更多未分类图片'"
+              @update:title="value => editablePhoto.title = value"
+              @update:description="value => editablePhoto.description = value"
+              @update:location="value => editablePhoto.location = value"
+              @update:folder="value => editablePhoto.folder = value"
+              @update:newTag="value => newTag = value"
+              @toggle-tag="toggleTag"
+              @toggle-tag-for-removal="toggleTagForRemoval"
+              @add-tag="addTag"
+            />
+          </div>
+
+          <div class="dialog-actions">
+            <md-text-button @click="closeDialog" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">关闭</md-text-button>
+            <md-text-button @click="handleLast" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">上一张</md-text-button>
+            <md-text-button @click="handleNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">下一张</md-text-button>
+            <md-filled-button @click="handleSaveAndNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">
+              <span v-if="isSaving" class="loading-spinner"></span>
+              {{ isSaving ? '保存中...' : '保存并下一张' }}
+            </md-filled-button>
+          </div>
+        </div>
+      </Transition>
+    </div>
+  </Transition>
+</template>
 
 <style scoped>
 /* 对话框样式 */

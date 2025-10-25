@@ -54,7 +54,7 @@
               </div>
               <div class="tags">
                 <md-assist-chip
-                  v-for="tag in photo.tags.slice(0, 2)"
+                  v-for="tag in photo.tags.slice(0, 4)"
                   :key="tag"
                   :label="tag"
                   size="small"
@@ -62,8 +62,8 @@
                   @click="handleTagClick(tag, $event)"
                 />
                 <md-assist-chip
-                  v-if="photo.tags.length > 2"
-                  :label="'+' + (photo.tags.length - 2)"
+                  v-if="photo.tags.length > 4"
+                  :label="'+' + (photo.tags.length - 4)"
                   size="small"
                 />
               </div>

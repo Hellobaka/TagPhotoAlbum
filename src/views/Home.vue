@@ -66,7 +66,7 @@
               <div class="search-box">
                 <md-outlined-text-field
                   v-model="searchQuery"
-                  label="搜索图片..."
+                  label="搜索图片"
                   type="search"
                   has-trailing-icon
                 >
@@ -99,11 +99,14 @@
           :selected-folder="selectedFolder"
           :selected-location="selectedLocation"
           :search-query="searchQuery"
+          :sort-by="sortBy"
+          :sort-order="sortOrder"
           @toggle-tag="toggleTag"
           @select-folder="selectFolder"
           @select-location="selectLocation"
           @clear-search="clearSearch"
           @clear-all-filters="clearAllFilters"
+          @sort-change="handleSortChange"
         />
 
 
@@ -178,7 +181,8 @@ const selectedTags = ref([])
 const selectedFolder = ref(null)
 const selectedLocation = ref(null)
 const searchQuery = ref('')
-const sortBy = ref('date-desc') // 默认按最新上传排序
+const sortBy = ref('date') // 默认按日期排序
+const sortOrder = ref('desc') // 默认降序排列
 const isCategorizing = ref(false)
 const showUploadZone = ref(false)
 const isClosingUploadZone = ref(false)
@@ -251,7 +255,8 @@ const setActiveTab = async (tabId) => {
   selectedFolder.value = null
   selectedLocation.value = null
   searchQuery.value = ''
-  sortBy.value = 'date-desc' // 重置为默认排序
+  sortBy.value = 'date' // 重置为默认排序
+  sortOrder.value = 'desc' // 重置为默认排序
 
   try {
     // 根据标签页类型刷新数据
@@ -313,10 +318,18 @@ const clearAllFilters = async () => {
   selectedFolder.value = null
   selectedLocation.value = null
   searchQuery.value = ''
-  sortBy.value = 'date-desc' // 重置为默认排序
+  sortBy.value = 'date' // 重置为默认排序
+  sortOrder.value = 'desc' // 重置为默认排序
 
   // 清除筛选并重新加载
   await applyFilters()
+}
+
+// 处理排序变更
+const handleSortChange = (sortParams) => {
+  sortBy.value = sortParams.sortBy
+  sortOrder.value = sortParams.sortOrder
+  applyFilters()
 }
 
 const clearSearch = async () => {
@@ -338,7 +351,8 @@ const applyFilters = async () => {
       folder: selectedFolder.value,
       location: selectedLocation.value,
       searchQuery: searchQuery.value,
-      sortBy: sortBy.value
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value
     }
 
     await photoStore.applyFilters(filters)
