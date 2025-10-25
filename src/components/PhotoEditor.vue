@@ -113,7 +113,7 @@
               <h4 class="md-typescale-body-medium">常用标签</h4>
               <span v-if="popularTags.length == 0">空</span>
               <div class="popular-tags-container">
-                <md-suggestion-chip v-for="tag in popularTags" :key="tag" :label="`${tag.name} (${tag.count})`"
+                <md-suggestion-chip v-for="tag in popularTags.slice(0, 20)" :key="tag" :label="`${tag.name} (${tag.count})`"
                   @click="$emit('toggle-tag', tag.name)"
                   :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]" />
               </div>
@@ -375,6 +375,7 @@ const toggleInfoVisibility = () => {
 
 const selectTagSuggestion = (tag) => {
   emit('update:newTag', tag)
+  addTag()
   closeTagSuggestionsWithAnimation()
 }
 
