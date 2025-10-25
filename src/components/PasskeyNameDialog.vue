@@ -1,6 +1,6 @@
 <template>
   <Transition name="dialog-fade">
-    <div v-if="show" class="dialog-overlay" @click="closeDialog">
+    <div v-if="show" class="dialog-overlay">
       <Transition name="dialog-scale">
         <div class="dialog-container" @click.stop>
           <div class="dialog-header">
@@ -19,7 +19,7 @@
                 :error="!deviceName.trim()"
                 :error-text="!deviceName.trim() ? '请输入设备名称' : ''"
                 @keyup.enter="confirm"
-                autofocus
+                autofocus style="width: 100%;"
               >
                 <span slot="leading-icon" class="material-symbols-outlined">devices</span>
               </md-outlined-text-field>
@@ -36,9 +36,10 @@
             <md-text-button
               @click="confirm"
               style="padding-left: 15px; padding-right: 15px;"
-              :disabled="!deviceName.trim()"
+              :disabled="!deviceName.trim() || props.loading"
             >
-              确认
+              <span v-if="!props.loading">确认</span>
+              <span v-else>正在保存...</span>
             </md-text-button>
           </div>
         </div>
@@ -52,6 +53,10 @@ import { ref, watch } from 'vue'
 
 const props = defineProps({
   show: {
+    type: Boolean,
+    default: false
+  },
+  loading: {
     type: Boolean,
     default: false
   }

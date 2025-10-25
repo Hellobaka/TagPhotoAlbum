@@ -25,7 +25,7 @@
         @click="handlePasskeyManagement"
       >
         <span class="material-symbols-outlined tab-icon">fingerprint</span>
-        <span class="tab-label" v-if="!isCollapsed">{{ hasPasskey ? '您已设置通行密钥' : '添加通行密钥' }}</span>
+        <span class="tab-label" v-if="!isCollapsed">管理通行密钥</span>
       </div>
     </nav>
 
@@ -75,11 +75,11 @@
       </div>
     </div>
 
-    <!-- 通行密钥名称输入对话框 -->
-    <PasskeyNameDialog
-      :show="showPasskeyNameDialog"
-      @confirm="handlePasskeyNameConfirm"
-      @close="closePasskeyNameDialog"
+    <!-- 通行密钥管理对话框 -->
+    <PasskeyManagementDialog
+      :show="showPasskeyManagementDialog"
+      @close="closePasskeyManagementDialog"
+      @passkey-deleted="handlePasskeyDeleted"
     />
   </div>
 </template>
@@ -91,7 +91,7 @@ import { useNotificationStore } from '@/stores/notificationStore'
 import { useRouter } from 'vue-router'
 import { onMounted, watch, ref } from 'vue'
 import { photoApi } from '@/api/photoApi'
-import PasskeyNameDialog from '@/components/PasskeyNameDialog.vue'
+import PasskeyManagementDialog from '@/components/PasskeyManagementDialog.vue'
 
 const props = defineProps({
   isCollapsed: {
@@ -142,8 +142,7 @@ const router = useRouter()
 // 响应式数据
 const hasPasskey = ref(false)
 const isPasskeySupported = ref(false)
-const showPasskeyNameDialog = ref(false)
-const pendingPasskeyData = ref(null)
+const showPasskeyManagementDialog = ref(false)
 
 // 检查 WebAuthn 支持
 const checkPasskeySupport = () => {
@@ -206,209 +205,19 @@ const loadFilterData = async (tabId) => {
 
 // 通行密钥管理
 const handlePasskeyManagement = async () => {
-  if (hasPasskey.value) {
-    // 已有通行密钥，显示管理选项
-    await showPasskeyManagementDialog()
-  } else {
-    // 注册新通行密钥
-    await registerNewPasskey()
-  }
+  // 直接打开管理对话框，在对话框中按需加载数据
+  showPasskeyManagementDialog.value = true
 }
 
-// 显示通行密钥管理对话框
-const showPasskeyManagementDialog = async () => {
-  try {
-    const notificationStore = useNotificationStore()
-
-    // 获取用户通行密钥列表
-    const response = await photoApi.getUserPasskeys()
-    const passkeys = response.data || []
-
-    if (passkeys.length === 0) {
-      notificationStore.showInfo('您尚未设置通行密钥')
-      hasPasskey.value = false
-      return
-    }
-
-    // 这里可以扩展为显示一个管理对话框
-    // 目前先显示基本信息
-    const passkeyInfo = passkeys[0]
-    notificationStore.showInfo(`已设置通行密钥：${passkeyInfo.deviceName || '默认设备'}`)
-
-    // 询问用户是否要删除
-    const shouldDelete = confirm('是否要删除此通行密钥？')
-    if (shouldDelete) {
-      await deletePasskey(passkeyInfo.id)
-    }
-  } catch (error) {
-    console.error('Failed to show passkey management dialog:', error)
-    const notificationStore = useNotificationStore()
-    notificationStore.showError('获取通行密钥信息失败')
-  }
+// 关闭通行密钥管理对话框
+const closePasskeyManagementDialog = () => {
+  showPasskeyManagementDialog.value = false
 }
 
-// 删除通行密钥
-const deletePasskey = async (passkeyId) => {
-  try {
-    const notificationStore = useNotificationStore()
-    await photoApi.deletePasskey(passkeyId)
-    notificationStore.showSuccess('通行密钥已删除')
-    hasPasskey.value = false
-  } catch (error) {
-    console.error('Failed to delete passkey:', error)
-    const notificationStore = useNotificationStore()
-    notificationStore.showError('删除通行密钥失败')
-  }
+// 处理通行密钥删除事件
+const handlePasskeyDeleted = () => {
+  hasPasskey.value = false
 }
-
-// 注册新通行密钥
-const registerNewPasskey = async () => {
-  try {
-    if (!authStore.user || !authStore.user?.username) {
-      throw {name: 'NotLogon'}
-    }
-    const notificationStore = useNotificationStore()
-
-    // 1. 获取注册选项
-    const options = await photoApi.getPasskeyRegistrationOptions()
-
-    // 2. 转换选项格式
-    const publicKey = {
-      challenge: base64urlToBytes(options.data.challenge),
-      rp: options.data.rp,
-      user: {
-        id: base64urlToBytes(options.data.user.id),
-        name: options.data.user.name,
-        displayName: options.data.user.displayName
-      },
-      pubKeyCredParams: options.data.pubKeyCredParams,
-      authenticatorSelection: options.data.authenticatorSelection,
-      timeout: options.data.timeout,
-      attestation: options.data.attestation
-    }
-
-    // 3. 调用 WebAuthn API 创建通行密钥
-    const credential = await navigator.credentials.create({
-      publicKey
-    })
-
-    // 4. 转换注册结果
-    const registrationData = {
-      response: {
-        id: credential.id,
-        rawId: arrayBufferToBase64Url(credential.rawId),
-        response: {
-          clientDataJSON: arrayBufferToBase64Url(credential.response.clientDataJSON),
-          attestationObject: arrayBufferToBase64Url(credential.response.attestationObject),
-          transports: credential.response.getTransports?.() || ['internal']
-        },
-        type: credential.type
-      },
-    }
-
-    // 5. 保存注册数据并显示名称输入对话框
-    pendingPasskeyData.value = registrationData
-    showPasskeyNameDialog.value = true
-
-  } catch (error) {
-    console.error('Passkey registration error:', error)
-    const notificationStore = useNotificationStore()
-
-    if (error.name === 'NotAllowedError') {
-      notificationStore.showError('用户取消了注册')
-    } else if (error.name === 'NotLogon') {
-      notificationStore.showError('当前用户未登录或状态错误')
-    } else if (error.name === 'NotSupportedError') {
-      notificationStore.showError('浏览器不支持通行密钥')
-    } else {
-      notificationStore.showError('通行密钥注册失败')
-    }
-  }
-}
-
-// 处理通行密钥名称确认
-const handlePasskeyNameConfirm = async (deviceName) => {
-  try {
-    const notificationStore = useNotificationStore()
-
-    if (!pendingPasskeyData.value) {
-      throw new Error('没有待处理的通行密钥数据')
-    }
-
-    // 添加设备名称到注册数据
-    const registrationData = {
-      ...pendingPasskeyData.value,
-      deviceName: deviceName
-    }
-
-    // 发送注册结果到后端
-    const result = await photoApi.registerPasskey(registrationData)
-
-    if (result && result.success) {
-      notificationStore.showSuccess('通行密钥注册成功')
-      hasPasskey.value = true
-    } else {
-      notificationStore.showError('通行密钥注册失败')
-    }
-
-  } catch (error) {
-    console.error('Failed to complete passkey registration:', error)
-    const notificationStore = useNotificationStore()
-    notificationStore.showError('通行密钥注册失败')
-  } finally {
-    // 重置状态
-    closePasskeyNameDialog()
-  }
-}
-
-// 关闭通行密钥名称对话框
-const closePasskeyNameDialog = () => {
-  showPasskeyNameDialog.value = false
-  pendingPasskeyData.value = null
-}
-
-const base64urlToBytes = (base64url) => {
-  const base64 = base64url
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-  const pad = base64.length % 4;
-  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
-  const binaryString = atob(padded);
-  return Uint8Array.from(binaryString, c => c.charCodeAt(0));
-}
-
-const arrayBufferToBase64Url = (arrayBuffer) => {
-  // 1. 确保输入是 ArrayBuffer 或 Uint8Array，并转换为 Uint8Array 视图
-  const uint8Array = arrayBuffer instanceof Uint8Array
-    ? arrayBuffer
-    : new Uint8Array(arrayBuffer);
-
-  // 2. 将 Uint8Array 转换为一个 "binary string"
-  //    btoa() 函数期望一个字符串，其中每个字符的编码点代表一个字节。
-  //    对于大型 ArrayBuffer，直接使用 String.fromCharCode(...uint8Array) 会导致栈溢出。
-  //    因此，我们使用分块处理的方式。
-  let binaryString = '';
-  const chunkSize = 8192; // 可以根据需要调整分块大小，例如 8KB
-
-  for (let i = 0; i < uint8Array.length; i += chunkSize) {
-    binaryString += String.fromCharCode.apply(
-      null, // apply 的第一个参数是 this，这里不需要
-      uint8Array.subarray(i, i + chunkSize) // 获取当前分块
-    );
-  }
-
-  // 3. 将二进制字符串编码为标准的 Base64
-  const base64 = btoa(binaryString);
-
-  // 4. 将标准 Base64 转换为 Base64Url
-  //    - 替换 '+' 为 '-'
-  //    - 替换 '/' 为 '_'
-  //    - 移除末尾的 '=' 填充字符
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-};
 
 onMounted(() => {
   // 如果侧边栏展开，加载当前标签页的筛选数据
@@ -416,11 +225,8 @@ onMounted(() => {
     loadFilterData(props.activeTab)
   }
 
-  // 检查浏览器支持和用户通行密钥状态
+  // 只检查浏览器支持，不自动检查通行密钥状态
   checkPasskeySupport()
-  if (isPasskeySupported.value && authStore.isAuthenticated) {
-    checkUserPasskeys()
-  }
 })
 
 // 方法

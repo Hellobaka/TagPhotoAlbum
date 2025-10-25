@@ -1,36 +1,30 @@
 <template>
-  <div v-if="hasActiveFilters" class="filter-status">
-    <div class="filter-chips">
-      <md-filter-chip
-        v-for="tag in selectedTags"
-        :key="tag"
-        :label="tag"
-        @click="toggleTag(tag)"
-      >
+  <div class="filter-status">
+    <div class="filter-chips" v-if="hasActiveFilters" >
+      <md-filter-chip v-for="tag in selectedTags" :key="tag" :label="tag" @click="toggleTag(tag)">
         <md-icon slot="icon" style="margin-right: 5px;">local_offer</md-icon>
       </md-filter-chip>
-      <md-filter-chip
-        v-if="selectedFolder"
-        :label="selectedFolder"
-        @click="selectFolder(selectedFolder)"
-      >
+      <md-filter-chip v-if="selectedFolder" :label="selectedFolder" @click="selectFolder(selectedFolder)">
         <md-icon slot="icon" style="margin-right: 5px;">folder</md-icon>
       </md-filter-chip>
-      <md-filter-chip
-        v-if="selectedLocation"
-        :label="selectedLocation"
-        @click="selectLocation(selectedLocation)"
-      >
+      <md-filter-chip v-if="selectedLocation" :label="selectedLocation" @click="selectLocation(selectedLocation)">
         <md-icon slot="icon" style="margin-right: 5px;">location_on</md-icon>
       </md-filter-chip>
-      <md-filter-chip
-        v-if="searchQuery"
-        :label="'搜索: ' + searchQuery"
-        @click="clearSearch"
-      >
+      <md-filter-chip v-if="searchQuery" :label="'搜索: ' + searchQuery" @click="clearSearch">
         <md-icon slot="icon" style="margin-right: 5px;">search</md-icon>
       </md-filter-chip>
       <md-text-button style="padding-left: 15px; padding-right: 15px;" @click="clearAllFilters">清除全部</md-text-button>
+    </div>
+    <!-- 排序下拉菜单 -->
+    <div class="sort-dropdown">
+      <md-outlined-select v-model="sortBy" label="排序方式" @change="handleSortChange">
+        <md-select-option value="date-desc">最新上传</md-select-option>
+        <md-select-option value="date-asc">最早上传</md-select-option>
+        <md-select-option value="title-asc">标题A-Z</md-select-option>
+        <md-select-option value="title-desc">标题Z-A</md-select-option>
+        <md-select-option value="size-desc">文件大小(大→小)</md-select-option>
+        <md-select-option value="size-asc">文件大小(小→大)</md-select-option>
+      </md-outlined-select>
     </div>
   </div>
 </template>
@@ -90,6 +84,9 @@ const clearSearch = () => {
 const clearAllFilters = () => {
   emit('clear-all-filters')
 }
+
+const handleSortChange = async () => {
+}
 </script>
 
 <style scoped>
@@ -109,4 +106,9 @@ const clearAllFilters = () => {
   gap: 8px;
   align-items: center;
 }
+
+.sort-dropdown {
+  min-width: 160px;
+}
+
 </style>
