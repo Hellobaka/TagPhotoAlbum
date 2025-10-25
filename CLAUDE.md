@@ -9,7 +9,7 @@ TagPhotoAlbum is a Vue.js photo management application with tagging, categorizat
 ## Development Commands
 
 ### Frontend Development
-- `npm run dev` - Start Vite development server on port 3000
+- `npm run dev` - Start Vite development server on port 3000 (with proxy to backend)
 - `npm run build` - Build production assets
 - `npm run preview` - Preview production build
 
@@ -24,7 +24,7 @@ TagPhotoAlbum is a Vue.js photo management application with tagging, categorizat
 - **Routing**: Vue Router with authentication guards
 - **UI**: Material Web Components (MDC) - custom elements prefixed with `md-`
 - **Build Tool**: Vite with custom element configuration for MDC
-- **Backend**: Express.js with mock data
+- **Backend**: Express.js with mock data (backend not included in this repository)
 
 ### Key Directories
 - `src/stores/` - Pinia stores for authentication, photos, and notifications
@@ -32,17 +32,18 @@ TagPhotoAlbum is a Vue.js photo management application with tagging, categorizat
 - `src/views/` - Page-level components
 - `src/api/` - Axios-based API client
 - `src/router/` - Vue Router configuration
-- `server/` - Express.js backend with REST API
+- `src/config/` - Configuration files (API endpoints, etc.)
 
 ### State Management Pattern
-- **authStore**: JWT authentication, login/logout, route guards
-- **photoStore**: Photo CRUD operations, tagging, filtering, search
+- **authStore**: JWT authentication, login/logout, route guards, passkey management
+- **photoStore**: Photo CRUD operations, tagging, filtering, search, pagination
 - **notificationStore**: Global snackbar notifications
 
 ### API Integration
 - Centralized API client in `src/api/photoApi.js`
 - Automatic JWT token injection via Axios interceptors
 - Consistent error handling and authentication failure redirects
+- Passkey authentication support
 
 ### Component Hierarchy
 ```
@@ -52,83 +53,41 @@ App
 │   └── Home (Main Application)
 │       ├── Sidebar (Navigation & Filtering)
 │       ├── FilterStatus (Active Filters)
-│       ├── PhotoGrid (Masonry Layout)
+│       ├── PhotoGrid (Masonry Layout with Infinite Scroll)
 │       ├── PhotoDialog (Detail & Edit)
-│       └── CategorizeDialog (Batch Editing)
+│       ├── CategorizeDialog (Batch Editing)
+│       ├── UploadZone (Drag & Drop Upload)
+│       └── Passkey Management Components
 └── GlobalSnackbar (Notifications)
 ```
 
 ## Key Features
 
 ### Photo Management
-- Masonry grid layout with progressive loading
+- Masonry grid layout with progressive loading and infinite scroll
 - Tag-based organization with color coding
 - Folder and location categorization
 - Search and filtering capabilities
 - Batch editing and categorization
+- Drag-and-drop file upload
 
 ### UI/UX
-- Material Design 3 theming
+- Material Design 3 theming with light/dark mode support
 - Responsive design with mobile support
 - Smooth animations and transitions
-- Drag-and-drop file upload
-- Color-coded tag system
+- Color-coded tag system with dynamic color assignment
 
 ### Authentication
 - JWT-based authentication with localStorage
+- Passkey authentication support
 - Route guards for protected pages
 - Automatic token refresh handling
 
-## Recent Updates (Last Updated: 2025-10-22)
-
-### Lazy Loading Implementation
-- **Pagination**: Tags, folders, and locations pages now load only first page (20 photos)
-- **Infinite Scroll**: Automatic loading of next pages when scrolling to bottom
-- **Performance Optimization**: Reduced initial load time by loading data on-demand
-
-### Refresh Functionality
-- **Global Refresh Button**: Added refresh icon in header for all tab pages
-- **Loading States**: Visual feedback with rotating animation during refresh
-- **Success Notifications**: Green snackbar shows photo count after refresh
-
-### Data Loading Optimization
-- **Removed Bulk Loading**: Eliminated `initializeData()` function that loaded all data at once
-- **On-Demand Loading**: Each tab loads only its required data
-- **Sidebar Optimization**: Filter data loads only when sidebar is expanded and tab is active
-
-### Folder Input Enhancement
-- **Custom Autocomplete**: Replaced dropdown selectors with autocomplete text fields in both PhotoDialog and CategorizeDialog
-- **Smart Suggestions**: Click to show folder suggestions, input to filter, click to select
-- **Consistent UX**: Same autocomplete experience across all editing interfaces
-
-### Image Path Resolution
-- **Relative Path Support**: Backend returns relative paths like `upload/1.png`
-- **Automatic Conversion**: Frontend automatically converts to full URLs using configuration
-- **Smart Detection**: Handles full URLs, relative paths, and other formats
-
-### Configuration Management
-- **Centralized Config**: Created `src/config/api.js` for backend address management
-- **Easy Deployment**: Modify backend address in one location for all components
-- **Current Settings**:
-  - `BASE_URL: 'http://localhost:5085'`
-  - `API_PREFIX: '/api'`
-  - `UPLOAD_PATH: '/external'`
-  - `HMAC_KEY`: JWT signing key (must match backend configuration)
-
-### Tab Navigation
-- **Data Refresh**: Each tab switch now automatically refreshes data
-- **Uncategorized Photos**: Uses dedicated `/photos/uncategorized` endpoint
-- **Recommend Photos**: Uses dedicated `/photos/recommend` endpoint
-
-### Recent Features
-- **Component Splitting**: Improved modularity and code organization
-- **Original Image Display**: Category editor can show original (uncompressed) images
-- **Image Metadata**: Display upload time and file size for photos
-- **Compressed Images**: Prioritize compressed images with fallback to original
-- **Enhanced Editing**: Improved tag and folder editing in category editor
-- **Mobile Optimization**: Sidebar displays as overlay on mobile devices
-- **Font Update**: Default font changed to Google Sans
-- **Image Recommendations**: Backend support for excluding specific images from recommendations
+### Performance Optimizations
+- **Lazy Loading**: Photos load in pages of 20, with Intersection Observer for infinite scroll
+- **On-Demand Data**: Filter data loads only when sidebar is expanded and tab is active
+- **Image Optimization**: Progressive loading with fallback to original images
+- **Build Optimization**: Vite configured with manual chunk splitting
 
 ## Development Notes
 
@@ -137,28 +96,50 @@ App
 - Use Material Design 3 components for consistent UI
 - Note: `datalist` not supported with MDC text fields, use custom autocomplete
 
-### API Development
-- Backend uses mock data for development
-- RESTful endpoints for photo management
-- CORS enabled for frontend-backend communication
-- Image paths are relative and require frontend conversion
+### API Configuration
+- Backend configuration in `src/config/api.js`
+- Proxy configuration in Vite config for development
+- Image URL resolution through `getImageUrl()` function
 
-### State Updates
+### State Management
 - Use Pinia stores for all state management
 - Follow reactive patterns with Vue 3 Composition API
 - Handle loading states consistently across components
 - Tab switching triggers data refresh for up-to-date content
-- Lazy loading uses pagination and Intersection Observer for infinite scroll
+
+### Tab Navigation System
+- **Recommend**: AI-recommended photos with exclusion support
+- **Tags**: Tag-based filtering with color coding
+- **Folders**: Folder-based organization
+- **Locations**: Location-based filtering
+- **Uncategorized**: Photos needing categorization with batch editing
 
 ### Image Handling
 - All image URLs pass through `getImageUrl()` function
 - Supports: full URLs, relative paths, data URLs
 - Configurable backend address for deployment flexibility
+- Progressive loading with loading states and error handling
 
-### Performance Optimizations
-- **Lazy Loading**: Photos load in pages of 20, with infinite scroll
-- **On-Demand Data**: Filter data loads only when needed
-- **Efficient State**: Each tab manages its own loading and data
-- **Refresh Optimization**: Global refresh button with visual feedback
-- **Build Optimization**: Vite configured with manual chunk splitting for vendor libraries
-- **Path Aliases**: `@` alias configured for `/src` directory imports
+### Recent Updates (Last Updated: 2025-10-25)
+
+#### Lazy Loading & Performance
+- **Pagination**: All tab pages load only first page (20 photos)
+- **Infinite Scroll**: Automatic loading of next pages when scrolling to bottom
+- **On-Demand Filter Data**: Sidebar filter data loads only when needed
+- **Global Refresh**: Refresh button with visual feedback and success notifications
+
+#### Authentication Enhancements
+- **Passkey Support**: WebAuthn authentication with passkey management
+- **Improved Security**: HMAC-based authentication with configurable keys
+- **Token Validation**: Automatic token validation and refresh
+
+#### UI/UX Improvements
+- **Mobile Optimization**: Sidebar displays as overlay on mobile devices
+- **Color-Coded Tags**: Dynamic color assignment for better visual organization
+- **Enhanced Editing**: Improved tag and folder editing in category editor
+- **Upload Experience**: Drag-and-drop upload with visual feedback
+
+#### Configuration Management
+- **Centralized Config**: Backend address and API configuration in one location
+- **Easy Deployment**: Simple configuration changes for different environments
+- **Proxy Setup**: Development proxy configured for backend communication
