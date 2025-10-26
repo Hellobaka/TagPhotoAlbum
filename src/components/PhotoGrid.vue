@@ -48,6 +48,25 @@
           <div class="photo-overlay">
             <div class="photo-info">
               <h4 class="md-typescale-body-medium">{{ photo.title }}</h4>
+              <!-- 评分显示 -->
+              <div v-if="photo.rating > 0" class="photo-rating">
+                <div class="rating-stars">
+                  <div
+                    v-for="star in 5"
+                    :key="star"
+                    class="star-container"
+                  >
+                    <span class="material-symbols-outlined star-icon"
+                      :class="{
+                        'filled': star <= Math.floor(photo.rating),
+                        'half': star === Math.ceil(photo.rating) && photo.rating % 1 !== 0
+                      }">
+                      {{ getStarIcon(star, photo.rating) }}
+                    </span>
+                  </div>
+                </div>
+                <span class="rating-text">{{ photo.rating.toFixed(1) }}分</span>
+              </div>
               <div class="photo-meta">
                 <span class="meta-item">{{ formatDate(photo.date) }}</span>
                 <span class="meta-item">{{ formatFileSize(photo.fileSizeKB) }}</span>
@@ -58,7 +77,6 @@
                   :key="tag"
                   :label="tag"
                   size="small"
-                  :class="getTagColorClass(tag)"
                   @click="handleTagClick(tag, $event)"
                 />
                 <md-assist-chip
@@ -296,6 +314,19 @@ const formatDate = (dateString) => {
   }
 }
 
+// 获取星星图标
+const getStarIcon = (star, rating) => {
+  if (rating === null || rating === undefined || rating === 0) return 'star_outline'
+
+  if (star <= Math.floor(rating)) {
+    return 'star'
+  } else if (star === Math.ceil(rating) && rating % 1 !== 0) {
+    return 'star_half'
+  } else {
+    return 'star_outline'
+  }
+}
+
 // 格式化文件大小
 const formatFileSize = (fileSizeKB) => {
   if (!fileSizeKB) return ''
@@ -318,28 +349,6 @@ const getImageUrl = (photo) => {
     return `${API_CONFIG.BASE_URL}${url}`
   }
   return url
-}
-
-const getTagColorClass = (tag) => {
-  const colorClasses = [
-    'tag-color-art',
-    'tag-color-abstract',
-    'tag-color-color',
-    'tag-color-nature',
-    'tag-color-travel',
-    'tag-color-people',
-    'tag-color-building',
-    'tag-color-design',
-    'tag-color-modern',
-    'tag-color-photo'
-  ]
-  let hash = 0
-  for (let i = 0; i < tag.length; i++) {
-    hash = ((hash << 5) - hash) + tag.charCodeAt(i)
-    hash = hash & hash
-  }
-  const index = Math.abs(hash) % colorClasses.length
-  return colorClasses[index]
 }
 </script>
 
@@ -455,6 +464,43 @@ const getTagColorClass = (tag) => {
 .photo-info h4 {
   margin: 0 0 4px 0;
   font-weight: 500;
+}
+
+/* 评分显示样式 */
+.photo-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star-container {
+  padding: 2px;
+}
+
+.star-icon {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.2s;
+}
+
+.star-icon.filled {
+  color: var(--md-sys-color-primary);
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48;
+}
+
+.star-icon.half {
+  color: var(--md-sys-color-primary);
+}
+
+.rating-text {
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 .photo-meta {

@@ -41,7 +41,6 @@
             :label="`${tag.name} (${tag.count})`"
             :selected="selectedTags.includes(tag.name)"
             @click="toggleTag(tag.name)"
-            :class="getTagColorClass(tag.name)"
           />
         </div>
       </div>
@@ -73,15 +72,23 @@
           />
         </div>
       </div>
-    </div>
 
-    <!-- 通行密钥管理对话框 -->
-    <PasskeyManagementDialog
-      :show="showPasskeyManagementDialog"
-      @close="closePasskeyManagementDialog"
-      @passkey-deleted="handlePasskeyDeleted"
-    />
+      <!-- 评分筛选 -->
+      <div v-if="activeTab === 'ratings'" class="filter-section">
+        <h3 class="filter-title">评分</h3>
+        <div class="filter-items">
+          <md-filter-chip
+            v-for="rating in [5, 4, 3, 2, 1, 0]"
+            :key="rating"
+            :label="rating === 0 ? '未评分' : `${rating} 星`"
+            :selected="selectedRatings.includes(rating)"
+            @click="toggleRating(rating)"
+          />
+        </div>
+      </div>
+    </div>
   </div>
+
 </template>
 
 <script setup>
@@ -91,7 +98,6 @@ import { useNotificationStore } from '@/stores/notificationStore'
 import { useRouter } from 'vue-router'
 import { onMounted, watch, ref } from 'vue'
 import { photoApi } from '@/api/photoApi'
-import PasskeyManagementDialog from '@/components/PasskeyManagementDialog.vue'
 
 const props = defineProps({
   isCollapsed: {
@@ -113,6 +119,10 @@ const props = defineProps({
   selectedLocation: {
     type: String,
     default: null
+  },
+  selectedRatings: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -122,7 +132,9 @@ const emit = defineEmits([
   'toggle-tag',
   'select-folder',
   'select-location',
-  'logout'
+  'toggle-rating',
+  'logout',
+  'open-passkey-management'
 ])
 
 // 标签页配置
@@ -131,6 +143,7 @@ const tabs = [
   { id: 'tags', label: '标签', icon: 'local_offer' },
   { id: 'folders', label: '文件夹', icon: 'folder' },
   { id: 'locations', label: '地点', icon: 'location_on' },
+  { id: 'ratings', label: '评分', icon: 'star' },
   { id: 'uncategorized', label: '未分类', icon: 'folder_open' },
 ]
 
@@ -138,10 +151,6 @@ const tabs = [
 const photoStore = usePhotoStore()
 const authStore = useAuthStore()
 const router = useRouter()
-
-// 响应式数据
-const hasPasskey = ref(false)
-const showPasskeyManagementDialog = ref(false)
 
 // 监听标签页变化，按需加载筛选数据
 watch(() => props.activeTab, async (newTab) => {
@@ -184,18 +193,7 @@ const loadFilterData = async (tabId) => {
 
 // 通行密钥管理
 const handlePasskeyManagement = async () => {
-  // 直接打开管理对话框，在对话框中按需加载数据
-  showPasskeyManagementDialog.value = true
-}
-
-// 关闭通行密钥管理对话框
-const closePasskeyManagementDialog = () => {
-  showPasskeyManagementDialog.value = false
-}
-
-// 处理通行密钥删除事件
-const handlePasskeyDeleted = () => {
-  hasPasskey.value = false
+  emit('open-passkey-management')
 }
 
 onMounted(() => {
@@ -226,37 +224,15 @@ const selectLocation = (location) => {
   emit('select-location', location)
 }
 
+const toggleRating = (rating) => {
+  emit('toggle-rating', rating)
+}
+
 const handleLogout = () => {
   authStore.logout()
   router.push('/login')
 }
 
-const getTagColorClass = (tag) => {
-  // 预定义一组颜色类名
-  const colorClasses = [
-    'tag-color-art',
-    'tag-color-abstract',
-    'tag-color-color',
-    'tag-color-nature',
-    'tag-color-travel',
-    'tag-color-people',
-    'tag-color-building',
-    'tag-color-design',
-    'tag-color-modern',
-    'tag-color-photo'
-  ]
-
-  // 根据标签字符串生成一个稳定的哈希值
-  let hash = 0
-  for (let i = 0; i < tag.length; i++) {
-    hash = ((hash << 5) - hash) + tag.charCodeAt(i)
-    hash = hash & hash // 转换为32位整数
-  }
-
-  // 使用哈希值选择颜色类名
-  const index = Math.abs(hash) % colorClasses.length
-  return colorClasses[index]
-}
 </script>
 
 <style scoped>

@@ -37,6 +37,7 @@ export const usePhotoStore = defineStore('photos', {
       tags: [],
       folder: null,
       location: null,
+      rating: null,
       searchQuery: '',
       sortBy: 'date',
       sortOrder: 'desc'
@@ -258,6 +259,7 @@ export const usePhotoStore = defineStore('photos', {
         tags: [],
         folder: null,
         location: null,
+        rating: null,
         searchQuery: '',
         sortBy: 'date',
         sortOrder: 'desc'

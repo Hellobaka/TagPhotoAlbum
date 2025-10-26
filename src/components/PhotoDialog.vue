@@ -22,6 +22,7 @@
               @update:description="value => editablePhoto.description = value"
               @update:location="value => editablePhoto.location = value"
               @update:folder="value => editablePhoto.folder = value"
+              @update:rating="value => editablePhoto.rating = value"
               @update:newTag="value => newTag = value"
               @toggle-tag="toggleTag"
               @toggle-tag-for-removal="toggleTagForRemoval"
@@ -209,7 +210,7 @@ const refreshCurrentViewData = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1100;
   padding: 20px;
 }
 

@@ -3,43 +3,27 @@ import { ref, computed } from 'vue'
 import { photoApi } from '@/api/photoApi'
 import { useNotificationStore } from './notificationStore'
 import API_CONFIG from '@/config/api'
+import CryptoJS from 'crypto-js'
 
 // 安全登录相关工具函数
 const generateNonce = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 }
 
-// 使用Web Crypto API实现HMAC-SHA256，与后端算法保持一致
+// 使用crypto-js实现HMAC-SHA256，与后端算法保持一致
 const calculateHMAC = async (payload) => {
-  const encoder = new TextEncoder()
-  const keyData = encoder.encode(API_CONFIG.HMAC_KEY)
-  const payloadData = encoder.encode(payload)
-
-  // 导入密钥
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-
-  // 计算HMAC
-  const signature = await crypto.subtle.sign('HMAC', key, payloadData)
-
-  // 将ArrayBuffer转换为十六进制字符串（与后端保持一致）
-  const signatureArray = Array.from(new Uint8Array(signature))
-  const hexSignature = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return hexSignature
+  // 使用crypto-js计算HMAC-SHA256
+  const hmac = CryptoJS.HmacSHA256(payload, API_CONFIG.HMAC_KEY)
+  // 转换为十六进制字符串（与后端保持一致）
+  return hmac.toString(CryptoJS.enc.Hex)
 }
 
 // 使用SHA-256计算密码哈希
 const calculatePasswordHash = async (password) => {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return btoa(String.fromCharCode.apply(null, hashArray))
+  // 使用crypto-js计算SHA-256哈希
+  const hash = CryptoJS.SHA256(password)
+  // 转换为Base64字符串（与后端保持一致）
+  return CryptoJS.enc.Base64.stringify(hash)
 }
 
 export const useAuthStore = defineStore('auth', () => {

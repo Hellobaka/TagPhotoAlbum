@@ -143,6 +143,9 @@ export const photoApi = {
     if (filters.location) {
       params.location = filters.location
     }
+    if (filters.ratings && filters.ratings.length > 0) {
+      params.ratings = filters.ratings.join(',')
+    }
     if (filters.searchQuery) {
       params.q = filters.searchQuery
     }

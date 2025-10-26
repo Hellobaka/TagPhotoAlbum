@@ -28,11 +28,14 @@
         :selected-tags="selectedTags"
         :selected-folder="selectedFolder"
         :selected-location="selectedLocation"
+        :selected-ratings="selectedRatings"
         @toggle-sidebar="toggleSidebar"
         @set-active-tab="setActiveTab"
         @toggle-tag="toggleTag"
         @select-folder="selectFolder"
         @select-location="selectLocation"
+        @toggle-rating="toggleRating"
+        @open-passkey-management="openPasskeyManagementDialog"
       />
 
       <!-- 主内容区 -->
@@ -98,12 +101,14 @@
           :selected-tags="selectedTags"
           :selected-folder="selectedFolder"
           :selected-location="selectedLocation"
+          :selected-ratings="selectedRatings"
           :search-query="searchQuery"
           :sort-by="sortBy"
           :sort-order="sortOrder"
           @toggle-tag="toggleTag"
           @select-folder="selectFolder"
           @select-location="selectLocation"
+          @toggle-rating="toggleRating"
           @clear-search="clearSearch"
           @clear-all-filters="clearAllFilters"
           @sort-change="handleSortChange"
@@ -155,6 +160,12 @@
       @save-and-next="handleSaveAndNext"
       @next="handleNext"
     />
+
+    <!-- 通行密钥管理对话框 -->
+    <PasskeyManagementDialog
+      :show="showPasskeyManagementDialog"
+      @close="closePasskeyManagementDialog"
+    />
   </div>
 </template>
 
@@ -169,6 +180,7 @@ import PhotoGrid from '@/components/PhotoGrid.vue'
 import PhotoDialog from '@/components/PhotoDialog.vue'
 import CategorizeDialog from '@/components/CategorizeDialog.vue'
 import UploadZone from '@/components/UploadZone.vue'
+import PasskeyManagementDialog from '@/components/PasskeyManagementDialog.vue'
 import { useNotificationStore } from '@/stores/notificationStore'
 
 // 响应式数据
@@ -180,6 +192,7 @@ const newTag = ref('')
 const selectedTags = ref([])
 const selectedFolder = ref(null)
 const selectedLocation = ref(null)
+const selectedRatings = ref([])
 const searchQuery = ref('')
 const sortBy = ref('date') // 默认按日期排序
 const sortOrder = ref('desc') // 默认降序排列
@@ -189,12 +202,14 @@ const isClosingUploadZone = ref(false)
 const isRefreshing = ref(false)
 const isMobile = ref(false)
 const photoGridRef = ref(null)
+const showPasskeyManagementDialog = ref(false)
 
 // 标签页配置
 const tabs = [
   { id: 'tags', label: '标签', icon: 'local_offer' },
   { id: 'folders', label: '文件夹', icon: 'folder' },
   { id: 'locations', label: '地点', icon: 'location_on' },
+  { id: 'ratings', label: '评分', icon: 'star' },
   { id: 'recommend', label: '推荐', icon: 'recommend' },
   { id: 'uncategorized', label: '未分类', icon: 'folder_open' }
 ]
@@ -254,6 +269,7 @@ const setActiveTab = async (tabId) => {
   selectedTags.value = []
   selectedFolder.value = null
   selectedLocation.value = null
+  selectedRatings.value = []
   searchQuery.value = ''
   sortBy.value = 'date' // 重置为默认排序
   sortOrder.value = 'desc' // 重置为默认排序
@@ -270,7 +286,7 @@ const setActiveTab = async (tabId) => {
         await photoStore.getUncategorizedPhotos()
         break
       default:
-        // 标签、文件夹、地点页面：加载第一页数据
+        // 标签、文件夹、地点、评分页面：加载第一页数据
         await photoStore.loadFirstPage()
         break
     }
@@ -313,10 +329,23 @@ const selectLocation = async (location) => {
   await applyFilters()
 }
 
+const toggleRating = async (rating) => {
+  const index = selectedRatings.value.indexOf(rating)
+  if (index > -1) {
+    selectedRatings.value.splice(index, 1)
+  } else {
+    selectedRatings.value.push(rating)
+  }
+
+  // 应用筛选
+  await applyFilters()
+}
+
 const clearAllFilters = async () => {
   selectedTags.value = []
   selectedFolder.value = null
   selectedLocation.value = null
+  selectedRatings.value = []
   searchQuery.value = ''
   sortBy.value = 'date' // 重置为默认排序
   sortOrder.value = 'desc' // 重置为默认排序
@@ -341,15 +370,16 @@ const clearSearch = async () => {
 
 // 应用筛选条件
 const applyFilters = async () => {
-  if (activeTab.value === 'recommend' || activeTab.value === 'uncategorized') {
+  if (activeTab.value === 'recommend') {
     return
   }
 
   try {
     const filters = {
       tags: selectedTags.value,
-      folder: selectedFolder.value,
+      folder: activeTab.value !== 'uncategorized' ? selectedFolder.value : '未分类',
       location: selectedLocation.value,
+      ratings: selectedRatings.value,
       searchQuery: searchQuery.value,
       sortBy: sortBy.value,
       sortOrder: sortOrder.value
@@ -475,6 +505,15 @@ const handleTagClickFromGrid = async (tag) => {
 // 处理PhotoGrid组件就绪事件
 const handlePhotoGridReady = () => {
   console.log('✅ PhotoGrid is ready')
+}
+
+// 通行密钥管理对话框相关方法
+const openPasskeyManagementDialog = () => {
+  showPasskeyManagementDialog.value = true
+}
+
+const closePasskeyManagementDialog = () => {
+  showPasskeyManagementDialog.value = false
 }
 
 // 处理未分类页面的加载更多

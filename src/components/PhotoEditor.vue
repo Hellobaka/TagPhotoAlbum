@@ -115,7 +115,7 @@
               <div class="popular-tags-container">
                 <md-suggestion-chip v-for="tag in popularTags.slice(0, 20)" :key="tag" :label="`${tag.name} (${tag.count})`"
                   @click="$emit('toggle-tag', tag.name)"
-                  :class="[getTagColorClass(tag.name), { 'tag-selected': editablePhoto.tags?.includes(tag.name) }]" />
+                  :class="[{ 'tag-selected': editablePhoto.tags?.includes(tag.name) }]" />
               </div>
             </div>
 
@@ -126,7 +126,7 @@
                 <span v-if="editablePhoto.tags.length == 0">空</span>
                 <md-suggestion-chip v-for="tag in editablePhoto.tags" :key="tag" :label="tag"
                   @click="$emit('toggle-tag-for-removal', tag)"
-                  :class="[getTagColorClass(tag), { 'tag-marked-for-removal': tagsToRemove.includes(tag), 'tag-selected': !tagsToRemove.includes(tag) }]" />
+                  :class="[{ 'tag-marked-for-removal': tagsToRemove.includes(tag), 'tag-selected': !tagsToRemove.includes(tag) }]" />
               </div>
             </div>
 
@@ -146,6 +146,37 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- 评分控件 -->
+          <div class="rating-section">
+            <h3 class="md-typescale-title-medium">评分</h3>
+            <div class="rating-controls">
+              <div class="rating-stars">
+                <div
+                  v-for="star in 5"
+                  :key="star"
+                  class="star-container"
+                  @click="setRating(star)"
+                  @mouseenter="hoverRating = star"
+                  @mouseleave="hoverRating = null"
+                >
+                  <span class="material-symbols-outlined star-icon"
+                    :class="{
+                      'filled': getStarFilled(star),
+                      'half': getStarHalf(star)
+                    }">
+                    {{ getStarIcon(star) }}
+                  </span>
+                </div>
+              </div>
+              <div class="rating-value" v-if="editablePhoto.rating !== null && editablePhoto.rating !== undefined">
+                {{ formatRating(editablePhoto.rating) }}
+              </div>
+              <md-text-button @click="clearRating" v-if="editablePhoto.rating !== null && editablePhoto.rating !== undefined" style="padding-left: 10px; padding-right: 10px;">
+                清除评分
+              </md-text-button>
             </div>
           </div>
 
@@ -218,6 +249,7 @@ const emit = defineEmits([
   'update:location',
   'update:folder',
   'update:newTag',
+  'update:rating',
   'toggle-tag',
   'toggle-tag-for-removal',
   'add-tag'
@@ -241,6 +273,8 @@ const isCompactMode = ref(false)
 const showExifDetails = ref(false)
 const hideUncommonExif = ref(true)
 const hideUndenfiedExif = ref(true)
+// 评分相关
+const hoverRating = ref(null)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -465,33 +499,6 @@ const getFolderSuggestionsStyle = () => {
     left: `${rect.left + window.scrollX}px`,
     width: `${rect.width}px`
   }
-}
-
-const getTagColorClass = (tag) => {
-  // 预定义一组颜色类名
-  const colorClasses = [
-    'tag-color-art',
-    'tag-color-abstract',
-    'tag-color-color',
-    'tag-color-nature',
-    'tag-color-travel',
-    'tag-color-people',
-    'tag-color-building',
-    'tag-color-design',
-    'tag-color-modern',
-    'tag-color-photo'
-  ]
-
-  // 根据标签字符串生成一个稳定的哈希值
-  let hash = 0
-  for (let i = 0; i < tag.length; i++) {
-    hash = ((hash << 5) - hash) + tag.charCodeAt(i)
-    hash = hash & hash // 转换为32位整数
-  }
-
-  // 使用哈希值选择颜色类名
-  const index = Math.abs(hash) % colorClasses.length
-  return colorClasses[index]
 }
 
 // 日期格式化
@@ -908,6 +915,56 @@ const parseCustomDateString = (dateString) => {
   return dateObject;
 }
 
+// 评分相关方法
+const setRating = (star) => {
+  // 计算评分值（支持半分）
+  const currentRating = props.editablePhoto.rating
+  let newRating
+
+  if (currentRating === star) {
+    // 如果点击的是当前评分，设置为半分
+    newRating = star - 0.5
+  } else {
+    newRating = star
+  }
+
+  emit('update:rating', newRating)
+}
+
+const clearRating = () => {
+  emit('update:rating', null)
+}
+
+const getStarFilled = (star) => {
+  const displayRating = hoverRating.value || props.editablePhoto.rating
+  if (displayRating === null || displayRating === undefined) return false
+  return star <= Math.floor(displayRating)
+}
+
+const getStarHalf = (star) => {
+  const displayRating = hoverRating.value || props.editablePhoto.rating
+  if (displayRating === null || displayRating === undefined) return false
+  return star === Math.ceil(displayRating) && displayRating % 1 !== 0
+}
+
+const getStarIcon = (star) => {
+  const displayRating = hoverRating.value || props.editablePhoto.rating
+  if (displayRating === null || displayRating === undefined) return 'star'
+
+  if (star <= Math.floor(displayRating)) {
+    return 'star'
+  } else if (star === Math.ceil(displayRating) && displayRating % 1 !== 0) {
+    return 'star_half'
+  } else {
+    return 'star_outline'
+  }
+}
+
+const formatRating = (rating) => {
+  if (rating === null || rating === undefined) return ''
+  return `${rating.toFixed(1)} 分`
+}
+
 const downloadImage = async () => {
   if (!props.photo) return
 
@@ -1273,6 +1330,55 @@ const downloadImage = async () => {
   text-decoration: line-through;
   background-color: var(--md-sys-color-error-container) !important;
   color: var(--md-sys-color-on-error-container) !important;
+}
+
+/* 评分控件样式 */
+.rating-section {
+  margin-top: 8px;
+}
+
+.rating-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 4px;
+}
+
+.star-container {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.star-container:hover {
+  background-color: var(--md-sys-color-surface-container-highest);
+}
+
+.star-icon {
+  font-size: 24px;
+  color: var(--md-sys-color-outline);
+  transition: color 0.2s;
+}
+
+.star-icon.filled {
+  color: var(--md-sys-color-primary);
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48;
+}
+
+.star-icon.half {
+  color: var(--md-sys-color-primary);
+}
+
+.rating-value {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .info-grid {
