@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [vue({
     template: {
       compilerOptions: {
@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
-    proxy: {
+    proxy: mode === 'development' ? {
       '/api': {
         target: 'http://localhost:5085',
         changeOrigin: true,
@@ -27,7 +27,7 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       }
-    }
+    } : undefined,
   },
   resolve: {
     alias: {
@@ -45,4 +45,4 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000
   }
-})
+}))
