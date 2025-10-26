@@ -112,6 +112,7 @@
           @clear-search="clearSearch"
           @clear-all-filters="clearAllFilters"
           @sort-change="handleSortChange"
+          @layout-change="handleLayoutChange"
         />
 
 
@@ -136,6 +137,7 @@
           :loading-type="loadingType"
           :is-load-more="photoStore.isLoadMore"
           :has-more="photoStore.hasMore"
+          :layout="currentLayout"
           @open-photo-detail="openPhotoDetail"
           @load-more="handleLoadMore"
           @tag-click="handleTagClickFromGrid"
@@ -203,6 +205,7 @@ const isRefreshing = ref(false)
 const isMobile = ref(false)
 const photoGridRef = ref(null)
 const showPasskeyManagementDialog = ref(false)
+const currentLayout = ref('masonry') // 默认瀑布流布局
 
 // 标签页配置
 const tabs = [
@@ -516,6 +519,11 @@ const closePasskeyManagementDialog = () => {
   showPasskeyManagementDialog.value = false
 }
 
+// 处理布局切换
+const handleLayoutChange = (layout) => {
+  currentLayout.value = layout
+}
+
 // 处理未分类页面的加载更多
 const handleLoadMoreUncategorized = async () => {
   try {
@@ -649,7 +657,7 @@ onUnmounted(() => {
 .filter-status {
   position: sticky;
   top: var(--header-height);
-  z-index: 9;
+  z-index: 10;
 }
 
 .header-content {
@@ -897,7 +905,7 @@ onUnmounted(() => {
   }
 
   .main-content {
-    --header-height: 153px; /* 移动端 header 高度 */
+    --header-height: 217px; /* 移动端 header 高度 */
   }
   .masonry-grid {
     column-count: 2;

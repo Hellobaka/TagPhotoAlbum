@@ -221,9 +221,9 @@ export const photoApi = {
   },
 
   // 获取未分类照片（支持分页）
-  getUncategorizedPhotos(page = 1, limit = 20) {
+  getUncategorizedPhotos(page = 1, limit = 20, filters) {
     const filter = { page, limit, folder: '未分类' }
-    return this.getPhotosPaginated(page, limit, filter)
+    return this.getPhotosPaginated(page, limit, {...filters, ...filter})
   },
 
 }

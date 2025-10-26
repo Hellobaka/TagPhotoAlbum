@@ -8,8 +8,8 @@
       </div>
     </div>
 
-    <!-- masonry布局图片展示 -->
-    <div v-if="!isLoading" class="masonry-container" ref="gridContainer">
+    <!-- 瀑布流布局 -->
+    <div v-if="!isLoading && props.layout === 'masonry'" class="masonry-container" ref="gridContainer">
       <MasonryWall
         :items="photos"
         :ssr-columns="4"
@@ -65,7 +65,7 @@
                     </span>
                   </div>
                 </div>
-                <span class="rating-text">{{ photo.rating.toFixed(1) }}分</span>
+                <span class="rating-text">{{ photo.rating.toFixed(1) }}</span>
               </div>
               <div class="photo-meta">
                 <span class="meta-item">{{ formatDate(photo.date) }}</span>
@@ -91,6 +91,40 @@
         <!-- 在MasonryWall内部放置哨兵元素 -->
         <div v-if="index === photos.length - 1 || photos.length === 0" ref="sentinel" class="load-more-sentinel"></div>
       </MasonryWall>
+    </div>
+
+    <!-- 方形网格布局 -->
+    <div v-if="!isLoading && props.layout === 'grid'" class="grid-container" ref="gridContainer">
+      <div class="grid-items">
+        <div
+          v-for="(photo, index) in photos"
+          :key="photo.id"
+          class="grid-item"
+          @click="openPhotoDetail(photo)"
+        >
+          <div class="image-wrapper">
+            <img
+              v-if="imageStatus[photo.id] !== 'error'"
+              :src="getImageUrl(photo)"
+              :alt="photo.title"
+              loading="lazy"
+              @load="handleImageLoad(photo.id)"
+              @error="handleImageError(photo.id)"
+              :class="{'image-loading': imageStatus[photo.id] === 'loading'}"
+            />
+            <!-- 加载中动画 -->
+            <div v-if="imageStatus[photo.id] === 'loading'" class="img-loading-indicator">
+              <md-circular-progress indeterminate size="small" />
+            </div>
+            <!-- 加载失败占位 -->
+            <div v-if="imageStatus[photo.id] === 'error'" class="img-error-indicator">
+              <md-icon>broken_image</md-icon>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 哨兵元素 - 放在网格容器外部，确保能被正确检测 -->
+      <div v-if="photos.length > 0" ref="sentinel" class="load-more-sentinel"></div>
     </div>
 
     <!-- 加载更多状态 -->
@@ -125,7 +159,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MasonryWall from '@yeger/vue-masonry-wall'
 import API_CONFIG from '@/config/api'
 
@@ -149,6 +183,10 @@ const props = defineProps({
   hasMore: {
     type: Boolean,
     default: true
+  },
+  layout: {
+    type: String,
+    default: 'masonry'
   }
 })
 
@@ -190,7 +228,14 @@ const handleImageError = (photoId) => {
 
 // 设置 Intersection Observer 监听滚动到底部
 const setupIntersectionObserver = () => {
-  if (!sentinel.value) return
+  console.log('🔄 Setting up Intersection Observer')
+  console.log('📊 Current layout:', props.layout)
+  console.log('📊 Photos count:', props.photos.length)
+  if (!sentinel.value) {
+    console.log('❌ No sentinel element found')
+    return
+  }
+  console.log('✅ Sentinel element found:', sentinel.value)
   if (observer) observer.disconnect()
 
   // 使用检测到的滚动容器作为根元素
@@ -199,7 +244,14 @@ const setupIntersectionObserver = () => {
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
+        console.log('🔍 Intersection Observer triggered:', {
+          isIntersecting: entry.isIntersecting,
+          isLoadMore: props.isLoadMore,
+          hasMore: props.hasMore,
+          boundingClientRect: entry.boundingClientRect
+        })
         if (entry.isIntersecting && !props.isLoadMore && props.hasMore) {
+          console.log('🚀 Triggering load-more event')
           emit('load-more')
         }
       })
@@ -216,7 +268,7 @@ const setupIntersectionObserver = () => {
     observer.observe(sentinel.value)
   }
 }
-onMounted(() => {
+onMounted(async() => {
   // 设置滚动容器为最近的滚动父元素
   if (gridContainer.value) {
     let parent = gridContainer.value.parentElement
@@ -233,15 +285,21 @@ onMounted(() => {
   // 延迟设置Intersection Observer，确保MasonryWall已经渲染完成
   setTimeout(() => {
     setupIntersectionObserver()
-  }, 500)
+    emit('ready')
+  }, 600)
 })
 
 // 当照片数量变化时重新设置观察器
-watch(() => props.photos.length, () => {
+watch(() => props.photos, async () => {
   // 延迟设置，确保MasonryWall布局已经更新
   setTimeout(() => {
     setupIntersectionObserver()
-  }, 100)
+  }, 600)
+})
+
+watch(() => props.layout, async () => {
+  await nextTick()
+  reconfigureObserver()
 })
 
 onUnmounted(() => {
@@ -263,14 +321,6 @@ const reconfigureObserver = () => {
 // 组件就绪时通知父组件
 defineExpose({
   reconfigureObserver
-})
-
-// 组件挂载完成后通知父组件
-onMounted(() => {
-  // 延迟通知，确保组件完全就绪
-  setTimeout(() => {
-    emit('ready')
-  }, 600)
 })
 
 // 计算加载文本
@@ -392,6 +442,51 @@ const getImageUrl = (photo) => {
 .masonry-item:hover {
   transform: translateY(-2px);
   box-shadow: var(--md-sys-elevation-level3);
+}
+
+/* 方形网格布局样式 */
+.grid-container {
+  padding: 16px;
+}
+
+.grid-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.grid-item {
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--md-sys-elevation-level1);
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+  aspect-ratio: 1 / 1; /* 保持方形 */
+  /* 启用GPU加速 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.grid-item:hover {
+  transform: scale(1.02) translateZ(0); /* 减小缩放比例，使用GPU加速 */
+  box-shadow: var(--md-sys-elevation-level2); /* 降低阴影级别 */
+}
+
+.grid-item .image-wrapper {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 裁剪显示中心部分 */
+  display: block;
+  /* 优化图片渲染性能 */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
 }
 
 /* 图片加载中和失败效果 */
@@ -649,6 +744,12 @@ const getImageUrl = (photo) => {
 .load-more-sentinel {
   height: 1px;
   width: 100%;
+  /* 确保哨兵元素能被正确检测 */
+  margin-top: 20px;
+  background: transparent;
+  /* 确保哨兵元素不被网格布局影响 */
+  display: block !important;
+  position: relative !important;
 }
 
 /* 空状态 */
@@ -662,6 +763,31 @@ const getImageUrl = (photo) => {
   font-size: 64px;
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+/* 响应式设计 - 方形网格布局 */
+@media (max-width: 1200px) {
+  .grid-items {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-items {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .grid-container {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-items {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 6px;
+  }
 }
 
 </style>

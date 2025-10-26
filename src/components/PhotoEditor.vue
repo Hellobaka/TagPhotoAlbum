@@ -962,7 +962,7 @@ const getStarIcon = (star) => {
 
 const formatRating = (rating) => {
   if (rating === null || rating === undefined) return ''
-  return `${rating.toFixed(1)} 分`
+  return `${rating.toFixed(1)}`
 }
 
 const downloadImage = async () => {

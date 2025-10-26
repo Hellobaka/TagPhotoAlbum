@@ -94,6 +94,9 @@ export const usePhotoStore = defineStore('photos', {
   actions: {
     setActiveTab(tab) {
       this.activeTab = tab
+      if (tab == 'uncategorized' && this.clearFilters.folder == '未分类') {
+        this.currentFilters.folder = null
+      }
     },
 
     setSelectedPhoto(photo) {
@@ -359,7 +362,7 @@ export const usePhotoStore = defineStore('photos', {
         this.uncategorizedCurrentPage = 1
         this.hasMore = true
 
-        const response = await photoApi.getUncategorizedPhotos(1, 20)
+        const response = await photoApi.getUncategorizedPhotos(1, 20, this.currentFilters)
         this.photos = response.data || []
 
         // 存储总数量信息（如果后端返回了的话）
@@ -389,7 +392,7 @@ export const usePhotoStore = defineStore('photos', {
         this.isLoadMore = true
         const nextPage = this.uncategorizedCurrentPage + 1
 
-        const response = await photoApi.getUncategorizedPhotos(nextPage, 20)
+        const response = await photoApi.getUncategorizedPhotos(nextPage, 20, this.currentFilters)
         const newPhotos = response.data || []
 
         // 更新总数量信息（如果后端返回了的话）
