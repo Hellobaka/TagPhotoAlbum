@@ -249,7 +249,7 @@ const handleLogout = () => {
 }
 
 .sidebar-collapsed {
-  width: 80px;
+  width: 55px;
 }
 
 /* 移动端样式 */
@@ -279,6 +279,7 @@ const handleLogout = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  height: calc(var(--header-height) / 2);
 }
 
 .header-actions {

@@ -262,6 +262,7 @@ const filteredPhotos = computed(() => {
 // 方法
 const toggleSidebar = () => {
   isCollapsed.value = !isCollapsed.value
+  saveConfigToStorage()
 }
 
 const setActiveTab = async (tabId) => {
@@ -276,6 +277,9 @@ const setActiveTab = async (tabId) => {
   searchQuery.value = ''
   sortBy.value = 'date' // 重置为默认排序
   sortOrder.value = 'desc' // 重置为默认排序
+
+  // 保存配置
+  saveConfigToStorage()
 
   try {
     // 根据标签页类型刷新数据
@@ -519,9 +523,56 @@ const closePasskeyManagementDialog = () => {
   showPasskeyManagementDialog.value = false
 }
 
+// 本地存储配置键名
+const STORAGE_KEY = 'tag-photo-album-config'
+
+// 保存配置到本地存储
+const saveConfigToStorage = () => {
+  const config = {
+    currentLayout: currentLayout.value,
+    activeTab: activeTab.value,
+    isCollapsed: isCollapsed.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  console.log('💾 Saved config to localStorage:', config)
+}
+
+// 从本地存储读取配置
+const loadConfigFromStorage = () => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const config = JSON.parse(stored)
+      console.log('📂 Loaded config from localStorage:', config)
+
+      // 恢复布局配置
+      if (config.currentLayout) {
+        currentLayout.value = config.currentLayout
+      }
+
+      // 恢复标签页配置
+      if (config.activeTab) {
+        activeTab.value = config.activeTab
+      }
+
+      // 恢复侧边栏状态
+      if (config.isCollapsed !== undefined) {
+        isCollapsed.value = config.isCollapsed
+      }
+
+      // 通知父组件配置已加载
+      return true
+    }
+  } catch (error) {
+    console.error('Failed to load config from localStorage:', error)
+  }
+  return false
+}
+
 // 处理布局切换
 const handleLayoutChange = (layout) => {
   currentLayout.value = layout
+  saveConfigToStorage()
 }
 
 // 处理未分类页面的加载更多
@@ -604,17 +655,27 @@ const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768
 }
 
+
 onMounted(async () => {
   // 检测移动端
   checkMobile()
   window.addEventListener('resize', checkMobile)
 
+  // 从本地存储加载配置
+  const configLoaded = loadConfigFromStorage()
+
   // 根据当前标签页加载数据
   try {
-    await photoStore.getRecommendPhotos()
-    await photoStore.getTagsData()
-    await photoStore.getFoldersData()
-    await photoStore.getLocationsData()
+    // 如果配置已加载，根据恢复的标签页加载数据
+    if (configLoaded) {
+      await setActiveTab(activeTab.value)
+    } else {
+      // 默认加载推荐页面
+      await photoStore.getRecommendPhotos()
+      await photoStore.getTagsData()
+      await photoStore.getFoldersData()
+      await photoStore.getLocationsData()
+    }
   } catch (error) {
     console.error('Failed to load initial photo data:', error)
   }
@@ -629,6 +690,7 @@ onUnmounted(() => {
 .home {
   height: 100vh;
   overflow: hidden;
+  --header-height: 105px; /* 桌面端 header 高度 */
 }
 
 .layout {
@@ -641,7 +703,6 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   background: var(--md-sys-color-surface);
-  --header-height: 105px; /* 桌面端 header 高度 */
 }
 
 .content-header {
@@ -904,7 +965,7 @@ onUnmounted(() => {
     position: relative;
   }
 
-  .main-content {
+  .home {
     --header-height: 217px; /* 移动端 header 高度 */
   }
   .masonry-grid {

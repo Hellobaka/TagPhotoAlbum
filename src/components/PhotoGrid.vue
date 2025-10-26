@@ -228,14 +228,10 @@ const handleImageError = (photoId) => {
 
 // 设置 Intersection Observer 监听滚动到底部
 const setupIntersectionObserver = () => {
-  console.log('🔄 Setting up Intersection Observer')
-  console.log('📊 Current layout:', props.layout)
-  console.log('📊 Photos count:', props.photos.length)
   if (!sentinel.value) {
     console.log('❌ No sentinel element found')
     return
   }
-  console.log('✅ Sentinel element found:', sentinel.value)
   if (observer) observer.disconnect()
 
   // 使用检测到的滚动容器作为根元素
@@ -244,12 +240,6 @@ const setupIntersectionObserver = () => {
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        console.log('🔍 Intersection Observer triggered:', {
-          isIntersecting: entry.isIntersecting,
-          isLoadMore: props.isLoadMore,
-          hasMore: props.hasMore,
-          boundingClientRect: entry.boundingClientRect
-        })
         if (entry.isIntersecting && !props.isLoadMore && props.hasMore) {
           console.log('🚀 Triggering load-more event')
           emit('load-more')
