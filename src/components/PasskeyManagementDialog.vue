@@ -231,7 +231,7 @@ const registerNewPasskey = async () => {
     } else if (error.name === 'NotSupportedError') {
       notificationStore.showError('浏览器不支持通行密钥')
     } else {
-      notificationStore.showError('通行密钥注册失败')
+      notificationStore.showError('通行密钥注册失败: ' + error)
     }
   } finally {
     isCreatingPasskey.value = false
