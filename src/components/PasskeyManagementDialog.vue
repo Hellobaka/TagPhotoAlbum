@@ -60,7 +60,7 @@
               :disabled="isCreatingPasskey"
             >
               <md-icon slot="icon">add</md-icon>
-              <span v-if="!isCreatingPasskey">添加通行密钥</span>
+              <span v-if="!isCreatingPasskey" :disabled="!isPasskeySupported">添加通行密钥</span>
               <span v-else>正在创建...</span>
             </md-filled-button>
           </div>
@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
@@ -102,11 +102,25 @@ const isCreatingPasskey = ref(false)
 const isConfirmingPasskey = ref(false)
 const showPasskeyNameDialog = ref(false)
 const pendingPasskeyData = ref(null)
+const isPasskeySupported = ref(false)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
+
+// 检查 WebAuthn 支持
+const checkPasskeySupport = () => {
+  isPasskeySupported.value =
+    window.PublicKeyCredential &&
+    typeof window.PublicKeyCredential === 'function' &&
+    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&
+    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function'
+}
+
+onMounted(()=>{
+  checkPasskeySupport()
+})
 
 // 监听显示状态变化
 watch(() => props.show, async (newValue) => {
