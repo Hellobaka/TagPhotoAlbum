@@ -16,7 +16,15 @@ const routes = [
     path: '/',
     name: 'Home',
     component: Home,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: ':tabId',
+        name: 'HomeTab',
+        component: Home,
+        props: true
+      }
+    ]
   }
 ]
 
