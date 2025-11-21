@@ -471,12 +471,47 @@ export const usePhotoStore = defineStore('photos', {
     },
 
     // 上传图片
-    async uploadPhotos(formData) {
+    async uploadPhotos(formData, onUploadProgress) {
       try {
         this.setLoadingState('photos', true)
         this.error = null
-        const response = await photoApi.uploadPhotos(formData)
-        return response
+        
+        // 从formData获取文件列表以计算并发数
+        const files = formData.getAll('files')
+        const fileCount = files.length
+        
+        // 并发上传所有文件
+        const uploadPromises = files.map(file => {
+          const singleFileFormData = new FormData()
+          singleFileFormData.append('files', file)
+          
+          // 为每个文件创建独立的上传进度回调
+          const fileProgressCallback = (progressEvent) => {
+            if (onUploadProgress) {
+              // 计算单个文件的进度，并转换为总体进度的一部分
+              const singleFileProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              // 每个文件占总进度的 1/fileCount
+              const overallProgress = (singleFileProgress / 100) * (100 / fileCount)
+              onUploadProgress({ loaded: Math.round(overallProgress), total: 100 })
+            }
+          }
+          
+          return photoApi.uploadPhotos(singleFileFormData, fileProgressCallback)
+        })
+        
+        // 并发执行所有上传请求
+        const responses = await Promise.allSettled(uploadPromises)
+        
+        // 检查是否有失败的上传
+        const failedUploads = responses.filter(result => result.status === 'rejected')
+        if (failedUploads.length > 0) {
+          console.error('部分文件上传失败:', failedUploads)
+          // 如果有任何失败，抛出错误
+          throw new Error(`上传失败: ${failedUploads.length} 个文件上传失败`)
+        }
+        
+        // 返回成功上传的响应
+        return responses.map(result => result.value)
       } catch (error) {
         this.error = error.message
         const notificationStore = useNotificationStore()
