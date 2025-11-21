@@ -230,17 +230,16 @@ const uploadFiles = async (files) => {
       formData.append('files', file)
     })
 
-    // 模拟上传进度
-    const progressInterval = setInterval(() => {
-      if (uploadProgress.value < 90) {
-        uploadProgress.value += 10
+    // 调用 API 上传，传入进度回调函数
+    const response = await photoStore.uploadPhotos(formData, (progressEvent) => {
+      if (progressEvent.total) {
+        uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+      } else {
+        // 对于无法获取总大小的情况，显示一个递增的进度直到完成
+        uploadProgress.value = Math.min(uploadProgress.value + 1, 95)
       }
-    }, 200)
+    })
 
-    // 调用 API 上传
-    const response = await photoStore.uploadPhotos(formData)
-
-    clearInterval(progressInterval)
     uploadProgress.value = 100
 
     // 显示成功状态

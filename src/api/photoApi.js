@@ -1,5 +1,6 @@
 import axios from 'axios'
 import API_CONFIG from '@/config/api'
+import UPLOAD_CONFIG from '@/config/upload'
 
 const API_BASE_URL = `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}`
 
@@ -212,11 +213,24 @@ export const photoApi = {
   },
 
   // 上传图片
-  uploadPhotos(formData) {
+  uploadPhotos(formData, onUploadProgress) {
+    // 计算文件数量以确定超时时间
+    const files = formData.getAll('files')
+    const fileCount = files.length
+    
+    // 根据文件数量计算超时时间，每张图片10秒
+    let timeout = fileCount * UPLOAD_CONFIG.TIMEOUT_PER_IMAGE
+    
+    // 确保超时时间在合理范围内
+    timeout = Math.max(UPLOAD_CONFIG.MIN_TIMEOUT, timeout)
+    timeout = Math.min(UPLOAD_CONFIG.MAX_TIMEOUT, timeout)
+    
     return api.post('/photos/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      timeout: timeout,
+      onUploadProgress // 添加进度回调
     })
   },
 
