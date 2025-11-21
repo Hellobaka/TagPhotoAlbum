@@ -173,7 +173,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useAuthStore } from '@/stores/authStore'
 import Sidebar from '@/components/Sidebar.vue'
@@ -186,6 +186,8 @@ import PasskeyManagementDialog from '@/components/PasskeyManagementDialog.vue'
 import { useNotificationStore } from '@/stores/notificationStore'
 
 // 响应式数据
+const router = useRouter()
+const route = useRoute()
 const isCollapsed = ref(false)
 const activeTab = ref('recommend')
 const selectedPhoto = ref(null)
@@ -526,17 +528,6 @@ const closePasskeyManagementDialog = () => {
 // 本地存储配置键名
 const STORAGE_KEY = 'tag-photo-album-config'
 
-// 保存配置到本地存储
-const saveConfigToStorage = () => {
-  const config = {
-    currentLayout: currentLayout.value,
-    activeTab: activeTab.value,
-    isCollapsed: isCollapsed.value
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
-  console.log('💾 Saved config to localStorage:', config)
-}
-
 // 从本地存储读取配置
 const loadConfigFromStorage = () => {
   try {
@@ -550,8 +541,10 @@ const loadConfigFromStorage = () => {
         currentLayout.value = config.currentLayout
       }
 
-      // 恢复标签页配置
-      if (config.activeTab) {
+      // 恢复标签页配置 - 优先使用URL参数，然后是存储配置
+      if (route.params.tabId) {
+        activeTab.value = route.params.tabId
+      } else if (config.activeTab) {
         activeTab.value = config.activeTab
       }
 
@@ -567,6 +560,20 @@ const loadConfigFromStorage = () => {
     console.error('Failed to load config from localStorage:', error)
   }
   return false
+}
+
+// 保存配置到本地存储
+const saveConfigToStorage = () => {
+  const config = {
+    currentLayout: currentLayout.value,
+    activeTab: activeTab.value,
+    isCollapsed: isCollapsed.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+  console.log('💾 Saved config to localStorage:', config)
+  
+  // 同时更新路由
+  router.replace({ params: { tabId: activeTab.value } })
 }
 
 // 处理布局切换
