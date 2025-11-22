@@ -209,6 +209,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import API_CONFIG from '@/config/api'
+import { isPinyinMatch } from '@/utils/pinyin'
 
 const props = defineProps({
   photo: {
@@ -279,6 +280,7 @@ const hideUndenfiedExif = ref(true)
 const hoverRating = ref(null)
 // 标签建议导航
 const selectedTagIndex = ref(-1)
+
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -367,27 +369,26 @@ watch(() => props.photo, (newPhoto) => {
   }
 }, { immediate: true })
 
-// 计算属性 - 过滤文件夹建议
+// 计算属性 - 过滤文件夹建议（支持中文、拼音、首字母、模糊匹配）
 const filteredFolders = computed(() => {
   if (!props.editablePhoto.folder) {
     return props.allFolders.slice(0, 5) // 显示前5个建议
   }
 
-  const query = props.editablePhoto.folder.toLowerCase()
   return props.allFolders
-    .filter(folder => folder.toLowerCase().includes(query))
+    .filter(folder => isPinyinMatch(folder, props.editablePhoto.folder))
     .slice(0, 5) // 最多显示5个建议
 })
 
-// 计算属性 - 过滤标签建议
+// 计算属性 - 过滤标签建议（支持中文、拼音、首字母、模糊匹配）
 const filteredTags = computed(() => {
   if (!props.newTag) {
     return photoStore.computedTags.map(x => x.name).slice(0, 5)
   }
 
-  const query = props.newTag.toLowerCase()
   return photoStore.computedTags
-    .filter(tag => tag.name.toLowerCase().includes(query)).map(x => x.name)
+    .filter(tag => isPinyinMatch(tag.name, props.newTag))
+    .map(x => x.name)
 })
 
 // 方法
@@ -396,6 +397,7 @@ const addTag = () => {
     emit('add-tag', props.newTag.trim())
   }
 }
+
 
 const handleTagInput = (e) => {
   emit('update:newTag', e.target.value)
