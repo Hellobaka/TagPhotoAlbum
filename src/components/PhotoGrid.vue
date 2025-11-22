@@ -162,6 +162,7 @@
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import MasonryWall from '@yeger/vue-masonry-wall'
 import API_CONFIG from '@/config/api'
+import { usePhotoStore } from '@/stores/photoStore'
 
 const props = defineProps({
   photos: {
@@ -195,6 +196,9 @@ const emit = defineEmits(['open-photo-detail', 'load-more', 'tag-click', 'ready'
 const gridContainer = ref(null)
 let observer = null
 const sentinel = ref(null)
+
+// 使用 Pinia store
+const photoStore = usePhotoStore()
 
 // 获取滚动容器，优先使用父级容器，否则使用window
 const scrollContainer = ref(null)
@@ -271,6 +275,9 @@ onMounted(async() => {
       parent = parent.parentElement
     }
   }
+
+  // 初始化标签数据
+  await photoStore.initTagsData()
 
   // 延迟设置Intersection Observer，确保MasonryWall已经渲染完成
   setTimeout(() => {

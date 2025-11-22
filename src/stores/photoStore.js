@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { photoApi } from '@/api/photoApi'
 import { useNotificationStore } from './notificationStore'
+import UPLOAD_CONFIG from '@/config/upload'
 
 export const usePhotoStore = defineStore('photos', {
   state: () => ({
@@ -41,10 +42,46 @@ export const usePhotoStore = defineStore('photos', {
       searchQuery: '',
       sortBy: 'date',
       sortOrder: 'desc'
+    },
+    // 标签数据状态管理
+    tagsData: {
+      hasRequested: false, // 是否已经请求过标签数据
+      isEmpty: false, // 服务器返回的标签数据是否为空
+      isRequesting: false // 是否正在请求标签数据
     }
   }),
 
   getters: {
+    // 计算标签 - 自动确保数据已加载，优先使用服务器标签数据
+    computedTags: (state) => {
+      // 如果服务器标签数据不为空，使用服务器数据
+      if (state.tags.length > 0) {
+        return state.tags.map(tag => ({
+          name: tag.name || tag,
+          count: tag.count || 1
+        })).sort((a, b) => b.count - a.count)
+      }
+
+      // 如果服务器标签数据为空，使用本地计算
+      const tagCounts = {}
+
+      // 统计所有照片中的标签
+      const allPhotos = [...state.photos, ...state.recommendPhotos]
+      allPhotos.forEach(photo => {
+        if (photo.tags && Array.isArray(photo.tags)) {
+          photo.tags.forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1
+          })
+        }
+      })
+
+      // 转换为数组格式
+      return Object.entries(tagCounts).map(([name, count]) => ({
+        name,
+        count
+      })).sort((a, b) => b.count - a.count)
+    },
+
     filteredPhotos: (state) => {
       switch (state.activeTab) {
         case 'tags':
@@ -92,6 +129,16 @@ export const usePhotoStore = defineStore('photos', {
   },
 
   actions: {
+    // 初始化标签数据（在 PhotoGrid 组件加载时调用）
+    async initTagsData() {
+      // 如果已经请求过，不再重复请求
+      if (this.tagsData.hasRequested) {
+        return
+      }
+
+      await this.getTagsData()
+    },
+
     setActiveTab(tab) {
       this.activeTab = tab
       if (tab == 'uncategorized' && this.clearFilters.folder == '未分类') {
@@ -134,6 +181,9 @@ export const usePhotoStore = defineStore('photos', {
             // 触发响应式更新
             this.recommendPhotos[index] = updatedPhoto
           }
+
+          // 更新本地标签数据，避免重复向服务器请求
+          this.updateLocalTagsData(updatedPhoto)
         }
         return response
       } catch (error) {
@@ -144,6 +194,38 @@ export const usePhotoStore = defineStore('photos', {
       } finally {
         this.isLoading = false
       }
+    },
+
+    // 更新本地标签数据
+    updateLocalTagsData(updatedPhoto) {
+      if (!updatedPhoto.tags || !Array.isArray(updatedPhoto.tags)) {
+        return
+      }
+
+      // 如果服务器标签数据为空，我们只在本地维护标签数据
+      if (this.tagsData.isEmpty) {
+        // 不需要更新服务器标签数据，因为我们已经知道服务器是空的
+        return
+      }
+
+      // 如果服务器有标签数据，更新本地标签计数
+      const newTags = updatedPhoto.tags
+      const existingTags = new Set(this.tags.map(tag => tag.name || tag))
+
+      // 更新标签计数
+      newTags.forEach(tagName => {
+        const existingTag = this.tags.find(tag => (tag.name || tag) === tagName)
+        if (existingTag) {
+          // 增加现有标签的计数
+          existingTag.count = (existingTag.count || 0) + 1
+        } else {
+          // 添加新标签
+          this.tags.push({ name: tagName, count: 1 })
+        }
+      })
+
+      // 重新排序
+      this.tags.sort((a, b) => (b.count || 0) - (a.count || 0))
     },
 
     async addTagToPhoto(photoId, tag) {
@@ -422,18 +504,28 @@ export const usePhotoStore = defineStore('photos', {
       }
     },
 
+
     // 获取标签数据
     async getTagsData() {
       try {
+        this.tagsData.isRequesting = true
         this.setLoadingState('tags', true)
         const response = await photoApi.getTags()
         this.tags = response.data?.tags || []
+
+        // 更新标签数据状态
+        this.tagsData.hasRequested = true
+        this.tagsData.isEmpty = this.tags.length === 0
+
         return this.tags
       } catch (error) {
         this.error = error.message
         console.error('Failed to load tags:', error)
+        // 即使请求失败，也标记为已请求，避免重复请求
+        this.tagsData.hasRequested = true
         throw error
       } finally {
+        this.tagsData.isRequesting = false
         this.setLoadingState('tags', false)
       }
     },
@@ -481,26 +573,58 @@ export const usePhotoStore = defineStore('photos', {
         const fileCount = files.length
         
         // 并发上传所有文件
-        const uploadPromises = files.map(file => {
+        let completedFiles = 0
+        const uploadPromises = files.map((file, index) => {
           const singleFileFormData = new FormData()
           singleFileFormData.append('files', file)
-          
+
           // 为每个文件创建独立的上传进度回调
           const fileProgressCallback = (progressEvent) => {
             if (onUploadProgress) {
-              // 计算单个文件的进度，并转换为总体进度的一部分
-              const singleFileProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+              // 计算单个文件的进度
+              const singleFileProgress = progressEvent.total ?
+                Math.round((progressEvent.loaded * 100) / progressEvent.total) : 0
+
               // 每个文件占总进度的 1/fileCount
-              const overallProgress = (singleFileProgress / 100) * (100 / fileCount)
-              onUploadProgress({ loaded: Math.round(overallProgress), total: 100 })
+              const fileWeight = 100 / fileCount
+              const fileProgress = (singleFileProgress / 100) * fileWeight
+
+              // 计算当前总体进度（已完成的文件 + 当前文件的进度）
+              const completedProgress = completedFiles * fileWeight
+              const currentOverallProgress = completedProgress + fileProgress
+
+              onUploadProgress({
+                loaded: Math.min(95, Math.round(currentOverallProgress)),
+                total: 100
+              })
             }
           }
-          
+
           return photoApi.uploadPhotos(singleFileFormData, fileProgressCallback)
+            .then(result => {
+              completedFiles++
+              return result
+            })
         })
         
+        // 计算整体超时时间
+        const overallTimeout = Math.min(
+          fileCount * UPLOAD_CONFIG.TIMEOUT_PER_IMAGE,
+          UPLOAD_CONFIG.MAX_TIMEOUT
+        )
+
+        // 为每个上传请求添加超时控制
+        const uploadPromisesWithTimeout = uploadPromises.map(promise =>
+          Promise.race([
+            promise,
+            new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('单个文件上传超时')), UPLOAD_CONFIG.TIMEOUT_PER_IMAGE)
+            })
+          ])
+        )
+
         // 并发执行所有上传请求
-        const responses = await Promise.allSettled(uploadPromises)
+        const responses = await Promise.allSettled(uploadPromisesWithTimeout)
         
         // 检查是否有失败的上传
         const failedUploads = responses.filter(result => result.status === 'rejected')

@@ -245,8 +245,20 @@ const uploadFiles = async (files) => {
     // 显示成功状态
     isSuccess.value = true
 
-    // 刷新照片数据
-    await photoStore.loadFirstPage()
+    // 刷新照片数据 - 根据当前活动标签页刷新相应数据
+    const activeTab = photoStore.activeTab
+    switch (activeTab) {
+      case 'recommend':
+        await photoStore.getRecommendPhotos()
+        break
+      case 'uncategorized':
+        await photoStore.getUncategorizedPhotos()
+        break
+      default:
+        // 标签、文件夹、地点页面：重新加载当前页面数据
+        await photoStore.loadFirstPage()
+        break
+    }
 
     // 3秒后自动关闭
     setTimeout(() => {

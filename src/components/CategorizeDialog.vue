@@ -23,6 +23,7 @@ const emit = defineEmits(['close', 'save-and-next', 'next', 'last'])
 
 // 响应式数据
 const currentIndex = ref(0)
+const currentDisplayIndex = ref(0)
 const editablePhoto = ref({})
 const newTag = ref('')
 const isSaving = ref(false)
@@ -34,7 +35,7 @@ const notificationStore = useNotificationStore()
 
 // 计算属性 - 获取常用标签及其使用次数
 const popularTags = computed(() => {
-  return photoStore.tags.sort((a, b) => b.count - a.count)
+  return photoStore.computedTags.sort((a, b) => b.count - a.count)
 })
 
 // 计算当前显示的图片
@@ -137,7 +138,8 @@ const handleSaveAndNext = async () => {
     photoStore.currentCategorizePhoto = null
 
     await nextTick()
-    goToNext(1)
+    //goToNext(1)
+    currentDisplayIndex.value = currentDisplayIndex.value + 1
   } catch (error) {
     console.error('保存图片信息失败:', error)
   } finally {
@@ -168,6 +170,7 @@ const goToNext = (i) => {
     if (nextIndex < props.uncategorizedPhotos.length - 1) {
       // 还在缓存范围内，直接前进
       currentIndex.value++
+      currentDisplayIndex.value = currentIndex.value
     } else {
       // 超出缓存范围，检查是否还有更多数据
       if (photoStore.hasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
@@ -180,6 +183,7 @@ const goToNext = (i) => {
   } else {
     if(nextIndex >= 0) {
       currentIndex.value = currentIndex.value - 1
+      currentDisplayIndex.value = currentIndex.value
     }
   }
 }
@@ -193,6 +197,7 @@ const loadNextPage = async () => {
     if (loadedCount > 0) {
       // 加载成功后前进到下一张
       currentIndex.value++
+      currentDisplayIndex.value = currentIndex.value
       console.log(`✅ Loaded ${loadedCount} more photos, now at index ${currentIndex.value}`)
     } else {
       // 没有更多数据，关闭对话框
@@ -214,7 +219,7 @@ const loadNextPage = async () => {
         <div class="dialog-container" @click.stop>
           <div class="dialog-header">
             <h2 class="md-typescale-headline-small">
-              分类进度 ({{ currentIndex + 1 }}/{{ totalUncategorizedCount || uncategorizedPhotos.length }})
+              分类进度 ({{ currentDisplayIndex + 1 }}/{{ totalUncategorizedCount || uncategorizedPhotos.length }})
             </h2>
             <md-icon-button @click="closeDialog" class="close-btn">
               <span class="material-symbols-outlined">close</span>

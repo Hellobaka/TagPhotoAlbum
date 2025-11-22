@@ -17,14 +17,14 @@ const routes = [
     name: 'Home',
     component: Home,
     meta: { requiresAuth: true },
-    children: [
-      {
-        path: ':tabId',
-        name: 'HomeTab',
-        component: Home,
-        props: true
-      }
-    ]
+    props: (route) => ({ tabId: 'recommend' })
+  },
+  {
+    path: '/:tabId',
+    name: 'HomeTab',
+    component: Home,
+    meta: { requiresAuth: true },
+    props: true
   }
 ]
 

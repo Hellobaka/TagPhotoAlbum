@@ -133,15 +133,17 @@
             <!-- 添加新标签 -->
             <div class="add-tag-section">
               <div class="add-tag">
-                <md-outlined-text-field :value="newTag" @input="handleTagInput" @focus="showTagSuggestions = true"
-                  @blur="handleTagBlur" label="添加标签" @keyup.enter="addTag" ref="tagInput" style="width: 100%;">
+                <md-outlined-text-field :value="newTag" @input="handleTagInput" @focus="handleTagFocus"
+                  @blur="handleTagBlur" label="添加标签" @keydown="handleTagKeydown" ref="tagInput" style="width: 100%;">
                   <md-icon-button slot="trailing-icon" @click="addTag">
                     <span class="material-symbols-outlined">add</span>
                   </md-icon-button>
                 </md-outlined-text-field>
                 <div v-if="showTagSuggestions && filteredTags.length > 0" class="tag-suggestions"
                   :class="{ 'fade-out': isTagSuggestionsClosing }" :style="getTagSuggestionsStyle()">
-                  <div v-for="tag in filteredTags" :key="tag" class="suggestion-item" @click="selectTagSuggestion(tag)">
+                  <div v-for="(tag, index) in filteredTags" :key="tag"
+                    :class="['suggestion-item', { 'selected': index === selectedTagIndex }]"
+                    @click="selectTagSuggestion(tag)">
                     {{ tag }}
                   </div>
                 </div>
@@ -275,6 +277,8 @@ const hideUncommonExif = ref(true)
 const hideUndenfiedExif = ref(true)
 // 评分相关
 const hoverRating = ref(null)
+// 标签建议导航
+const selectedTagIndex = ref(-1)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -378,11 +382,11 @@ const filteredFolders = computed(() => {
 // 计算属性 - 过滤标签建议
 const filteredTags = computed(() => {
   if (!props.newTag) {
-    return photoStore.tags.map(x => x.name).slice(0, 5)
+    return photoStore.computedTags.map(x => x.name).slice(0, 5)
   }
 
   const query = props.newTag.toLowerCase()
-  return photoStore.tags
+  return photoStore.computedTags
     .filter(tag => tag.name.toLowerCase().includes(query)).map(x => x.name)
 })
 
@@ -396,6 +400,7 @@ const addTag = () => {
 const handleTagInput = (e) => {
   emit('update:newTag', e.target.value)
   showTagSuggestions.value = true
+  selectedTagIndex.value = -1 // 重置选择索引
 }
 
 // 折叠展开相关方法
@@ -413,11 +418,47 @@ const selectTagSuggestion = (tag) => {
   closeTagSuggestionsWithAnimation()
 }
 
+const handleTagFocus = () => {
+  showTagSuggestions.value = true
+  selectedTagIndex.value = -1
+}
+
 const handleTagBlur = () => {
   // 使用 setTimeout 确保点击建议项时不会立即关闭列表
   setTimeout(() => {
     closeTagSuggestionsWithAnimation()
   }, 150)
+}
+
+const handleTagKeydown = (e) => {
+  if (!showTagSuggestions.value || filteredTags.value.length === 0) {
+    return
+  }
+
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      selectedTagIndex.value = Math.min(selectedTagIndex.value + 1, filteredTags.value.length - 1)
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      selectedTagIndex.value = Math.max(selectedTagIndex.value - 1, -1)
+      break
+    case 'Enter':
+      e.preventDefault()
+      if (selectedTagIndex.value >= 0) {
+        // 如果有选中的建议项，添加该建议项
+        selectTagSuggestion(filteredTags.value[selectedTagIndex.value])
+      } else {
+        // 如果没有选中的建议项，添加当前输入的内容
+        addTag()
+      }
+      break
+    case 'Escape':
+      e.preventDefault()
+      closeTagSuggestionsWithAnimation()
+      break
+  }
 }
 
 const closeTagSuggestionsWithAnimation = () => {
@@ -1453,6 +1494,11 @@ const downloadImage = async () => {
 
 .suggestion-item:hover {
   background: var(--md-sys-color-surface-container-highest);
+}
+
+.suggestion-item.selected {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
 }
 
 .suggestion-item:not(:last-child) {

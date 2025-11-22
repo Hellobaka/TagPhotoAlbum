@@ -283,6 +283,15 @@ const setActiveTab = async (tabId) => {
   // 保存配置
   saveConfigToStorage()
 
+  // 更新路由URL
+  if (tabId === 'recommend') {
+    // 推荐页面使用根路径
+    router.replace({ name: 'Home' })
+  } else {
+    // 其他页面使用路径参数
+    router.replace({ name: 'HomeTab', params: { tabId } })
+  }
+
   try {
     // 根据标签页类型刷新数据
     switch (tabId) {
@@ -487,9 +496,22 @@ const handleSaveAndNext = async (photoData) => {
   try {
     await photoStore.updatePhoto(photoData)
 
-    // 更新标签计数
-    await photoStore.getTagsData()
+    // 从本地数据中移除当前照片（因为它已经被分类了）
+    const photoId = photoData.id
 
+    // 从 photos 数组中移除
+    const photoIndex = photoStore.photos.findIndex(photo => photo.id === photoId)
+    if (photoIndex !== -1) {
+      photoStore.photos.splice(photoIndex, 1)
+    }
+
+    // 从 recommendPhotos 数组中移除
+    const recommendIndex = photoStore.recommendPhotos.findIndex(photo => photo.id === photoId)
+    if (recommendIndex !== -1) {
+      photoStore.recommendPhotos.splice(recommendIndex, 1)
+    }
+
+    // 标签计数现在由本地计算，无需额外请求
     // 自动进入下一张
   } catch (error) {
     console.error('保存图片信息失败:', error)
@@ -541,11 +563,9 @@ const loadConfigFromStorage = () => {
         currentLayout.value = config.currentLayout
       }
 
-      // 恢复标签页配置 - 优先使用URL参数，然后是存储配置
+      // 恢复标签页配置 - 优先使用路由参数，然后是存储配置
       if (route.params.tabId) {
         activeTab.value = route.params.tabId
-      } else if (config.activeTab) {
-        activeTab.value = config.activeTab
       }
 
       // 恢复侧边栏状态
@@ -566,14 +586,10 @@ const loadConfigFromStorage = () => {
 const saveConfigToStorage = () => {
   const config = {
     currentLayout: currentLayout.value,
-    activeTab: activeTab.value,
     isCollapsed: isCollapsed.value
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
   console.log('💾 Saved config to localStorage:', config)
-  
-  // 同时更新路由
-  router.replace({ params: { tabId: activeTab.value } })
 }
 
 // 处理布局切换
@@ -663,6 +679,26 @@ const checkMobile = () => {
 }
 
 
+// 监听路由变化
+watch(() => route.params.tabId, async (newTabId) => {
+  console.log('🔄 Route tabId changed:', newTabId)
+
+  // 根据路由参数设置活动标签页
+  if (!newTabId) {
+    // 根路径，设置为推荐页面
+    if (activeTab.value !== 'recommend') {
+      activeTab.value = 'recommend'
+      await setActiveTab('recommend')
+    }
+  } else {
+    // 有tabId参数
+    if (tabs.some(tab => tab.id === newTabId) && activeTab.value !== newTabId) {
+      activeTab.value = newTabId
+      await setActiveTab(newTabId)
+    }
+  }
+}, { immediate: true }) // 立即执行一次，避免页面闪动
+
 onMounted(async () => {
   // 检测移动端
   checkMobile()
@@ -671,20 +707,16 @@ onMounted(async () => {
   // 从本地存储加载配置
   const configLoaded = loadConfigFromStorage()
 
-  // 根据当前标签页加载数据
+  // 如果路由监听器没有触发（比如直接访问根路径），则加载默认数据
   try {
-    // 如果配置已加载，根据恢复的标签页加载数据
-    if (configLoaded) {
-      await setActiveTab(activeTab.value)
-    } else {
-      // 默认加载推荐页面
-      await photoStore.getRecommendPhotos()
+    if (!configLoaded) {
+      // 默认加载筛选数据
       await photoStore.getTagsData()
       await photoStore.getFoldersData()
       await photoStore.getLocationsData()
     }
   } catch (error) {
-    console.error('Failed to load initial photo data:', error)
+    console.error('Failed to load initial filter data:', error)
   }
 })
 

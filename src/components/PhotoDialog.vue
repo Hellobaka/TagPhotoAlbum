@@ -43,6 +43,35 @@
       </Transition>
     </div>
   </Transition>
+
+  <!-- 未保存标签确认对话框 -->
+  <Transition name="dialog-fade">
+    <div v-if="showUnsavedTagDialog" class="dialog-overlay" @click="showUnsavedTagDialog = false">
+      <Transition name="dialog-scale">
+        <div class="confirm-dialog" @click.stop>
+          <div class="dialog-header">
+            <h3 class="md-typescale-title-large">未保存的标签</h3>
+          </div>
+          <div class="dialog-content">
+            <p class="md-typescale-body-medium">
+              您有一个未保存的标签 "{{ newTag }}"。是否要添加此标签后再保存？
+            </p>
+          </div>
+          <div class="dialog-actions">
+            <md-text-button @click="cancelUnsavedTag" style="padding-left: 15px; padding-right: 15px;">
+              取消
+            </md-text-button>
+            <md-text-button @click="saveWithoutUnsavedTag" style="padding-left: 15px; padding-right: 15px;">
+              不添加，直接保存
+            </md-text-button>
+            <md-text-button @click="addUnsavedTagAndSave" style="padding-left: 15px; padding-right: 15px;">
+              添加并保存
+            </md-text-button>
+          </div>
+        </div>
+      </Transition>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
@@ -65,6 +94,7 @@ const editablePhoto = ref({})
 const newTag = ref('')
 const isSaving = ref(false)
 const tagsToRemove = ref([])
+const showUnsavedTagDialog = ref(false)
 
 // 使用 Pinia store
 const photoStore = usePhotoStore()
@@ -72,7 +102,7 @@ const notificationStore = useNotificationStore()
 
 // 计算属性 - 获取常用标签及其使用次数
 const popularTags = computed(() => {
-  return photoStore.tags.sort((a, b) => b.count - a.count)
+  return photoStore.computedTags
 })
 
 // 监听选中的照片变化
@@ -131,6 +161,16 @@ const toggleTag = (tag) => {
 const savePhotoInfo = async () => {
   if (isSaving.value) return
 
+  // 检查是否有未保存的标签
+  if (newTag.value.trim() && !editablePhoto.value.tags.includes(newTag.value.trim())) {
+    showUnsavedTagDialog.value = true
+    return
+  }
+
+  await performSave()
+}
+
+const performSave = async () => {
   try {
     isSaving.value = true
 
@@ -143,59 +183,35 @@ const savePhotoInfo = async () => {
     await photoStore.updatePhoto(editablePhoto.value)
     emit('save-photo-info', editablePhoto.value)
 
-    // 保存成功后刷新当前视图数据
-    await refreshCurrentViewData()
+    // 保存成功后显示成功通知
+    notificationStore.showSuccess('保存成功')
   } catch (error) {
     console.error('保存图片信息失败:', error)
-    // 这里可以添加错误提示，比如使用 toast 通知用户
     notificationStore.showError('保存失败，请稍后重试')
   } finally {
     isSaving.value = false
   }
 }
 
-const refreshCurrentViewData = async () => {
-  try {
-    const activeTab = photoStore.activeTab
-
-    switch (activeTab) {
-      case 'tags':
-        // 重新加载标签页的第一页数据
-        await photoStore.loadFirstPage()
-        break
-      case 'folders':
-        // 重新加载文件夹页的第一页数据
-        await photoStore.loadFirstPage()
-        break
-      case 'locations':
-        // 重新加载地点页的第一页数据
-        await photoStore.loadFirstPage()
-        break
-      case 'recommend':
-        // 重新加载推荐照片
-        await photoStore.getRecommendPhotos()
-        break
-      case 'uncategorized':
-        // 重新加载未分类照片
-        await photoStore.getUncategorizedPhotos()
-        break
-      default:
-        // 默认重新加载第一页数据
-        await photoStore.loadFirstPage()
-    }
-
-    // 同时刷新元数据（标签、文件夹、地点）
-    await Promise.all([
-      photoStore.getTagsData(),
-      photoStore.getFoldersData(),
-      photoStore.getLocationsData()
-    ])
-
-  } catch (error) {
-    console.error('刷新数据失败:', error)
-    // 这里可以添加错误提示
+const addUnsavedTagAndSave = () => {
+  if (newTag.value.trim() && !editablePhoto.value.tags.includes(newTag.value.trim())) {
+    editablePhoto.value.tags.push(newTag.value.trim())
+    newTag.value = ''
   }
+  showUnsavedTagDialog.value = false
+  performSave()
 }
+
+const saveWithoutUnsavedTag = () => {
+  newTag.value = ''
+  showUnsavedTagDialog.value = false
+  performSave()
+}
+
+const cancelUnsavedTag = () => {
+  showUnsavedTagDialog.value = false
+}
+
 </script>
 
 <style scoped>
@@ -331,5 +347,35 @@ const refreshCurrentViewData = async () => {
   .dialog-actions {
     padding: 12px 16px 16px 16px;
   }
+}
+
+/* 确认对话框样式 */
+.confirm-dialog {
+  background: var(--md-sys-color-surface);
+  border-radius: 28px;
+  box-shadow: var(--md-sys-elevation-level3);
+  max-width: 400px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.confirm-dialog .dialog-header {
+  padding: 24px 24px 0 24px;
+  margin-bottom: 16px;
+}
+
+.confirm-dialog .dialog-content {
+  padding: 0 24px 16px 24px;
+  flex: 1;
+}
+
+.confirm-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px 24px 24px;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
 }
 </style>

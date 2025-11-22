@@ -6,7 +6,7 @@ const API_BASE_URL = `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}`
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 10000, // 默认超时时间，上传API会覆盖这个设置
   headers: {
     'Content-Type': 'application/json'
   },

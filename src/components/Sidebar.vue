@@ -36,7 +36,7 @@
         <h3 class="filter-title">标签</h3>
         <div class="filter-items">
           <md-filter-chip
-            v-for="tag in photoStore.tags"
+            v-for="tag in photoStore.computedTags"
             :key="tag.name"
             :label="`${tag.name} (${tag.count})`"
             :selected="selectedTags.includes(tag.name)"
@@ -171,9 +171,7 @@ const loadFilterData = async (tabId) => {
   try {
     switch (tabId) {
       case 'tags':
-        if (photoStore.tags.length === 0) {
-          await photoStore.getTagsData()
-        }
+        // 标签数据会在应用启动时自动加载，这里不需要额外操作
         break
       case 'folders':
         if (photoStore.folders.length === 0) {
