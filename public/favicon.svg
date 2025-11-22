@@ -1,0 +1,15 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆角矩形 -->
+  <rect width="256" height="256" rx="64" fill="#6750a4"/>
+
+  <!-- 相机镜头图标 -->
+  <circle cx="128" cy="128" r="64" fill="white" opacity="0.9"/>
+  <circle cx="128" cy="128" r="40" fill="#6750a4" opacity="0.8"/>
+  <circle cx="128" cy="128" r="16" fill="white"/>
+
+  <!-- 标签元素 - 右上角小标签 -->
+  <path d="M176 64 L208 64 L208 96 L176 128 Z" fill="#ffd8e4" stroke="#7d5260" stroke-width="4"/>
+
+  <!-- 照片角标 - 左下角 -->
+  <path d="M48 176 L80 176 L80 208 L48 208 Z" fill="#eaddff" stroke="#625b71" stroke-width="4"/>
+</svg>
