@@ -431,7 +431,7 @@ const handleRefresh = async () => {
     switch (activeTab.value) {
       case 'recommend':
         // 推荐页面：获取推荐照片
-        await photoStore.getRecommendPhotos()
+        await photoStore.getRecommendPhotos([])
         photoCount = photoStore.recommendPhotos.length
         break
       case 'uncategorized':
@@ -624,7 +624,7 @@ const handleLoadMoreUncategorized = async () => {
 // 懒加载更多照片
 const handleLoadMore = async () => {
   if (activeTab.value === 'recommend') {
-    // 推荐页面不支持懒加载
+    await handleLoadMoreRecommend()
     return
   }
 

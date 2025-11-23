@@ -9,7 +9,11 @@
     </div>
 
     <!-- 瀑布流布局 -->
-    <div v-if="!isLoading && props.layout === 'masonry'" class="masonry-container" ref="gridContainer">
+    <div
+      v-if="!isLoading && props.layout === 'masonry'"
+      class="masonry-container"
+      ref="gridContainer"
+    >
       <MasonryWall
         :items="photos"
         :ssr-columns="4"
@@ -21,10 +25,7 @@
         :scroll-container="scrollContainer"
         v-slot="{ item: photo, index }"
       >
-        <div
-          class="masonry-item"
-          @click="openPhotoDetail(photo)"
-        >
+        <div class="masonry-item" @click="openPhotoDetail(photo)">
           <div class="image-wrapper">
             <img
               v-if="imageStatus[photo.id] !== 'error'"
@@ -33,15 +34,21 @@
               loading="lazy"
               @load="handleImageLoad(photo.id)"
               @error="handleImageError(photo.id)"
-              :class="{'image-loading': imageStatus[photo.id] === 'loading'}"
-              style="display: block; width: 100%; height: auto;"
+              :class="{ 'image-loading': imageStatus[photo.id] === 'loading' }"
+              style="display: block; width: 100%; height: auto"
             />
             <!-- 加载中动画 -->
-            <div v-if="imageStatus[photo.id] === 'loading'" class="img-loading-indicator">
+            <div
+              v-if="imageStatus[photo.id] === 'loading'"
+              class="img-loading-indicator"
+            >
               <md-circular-progress indeterminate size="small" />
             </div>
             <!-- 加载失败占位 -->
-            <div v-if="imageStatus[photo.id] === 'error'" class="img-error-indicator">
+            <div
+              v-if="imageStatus[photo.id] === 'error'"
+              class="img-error-indicator"
+            >
               <md-icon>broken_image</md-icon>
             </div>
           </div>
@@ -51,16 +58,16 @@
               <!-- 评分显示 -->
               <div v-if="photo.rating > 0" class="photo-rating">
                 <div class="rating-stars">
-                  <div
-                    v-for="star in 5"
-                    :key="star"
-                    class="star-container"
-                  >
-                    <span class="material-symbols-outlined star-icon"
+                  <div v-for="star in 5" :key="star" class="star-container">
+                    <span
+                      class="material-symbols-outlined star-icon"
                       :class="{
-                        'filled': star <= Math.floor(photo.rating),
-                        'half': star === Math.ceil(photo.rating) && photo.rating % 1 !== 0
-                      }">
+                        filled: star <= Math.floor(photo.rating),
+                        half:
+                          star === Math.ceil(photo.rating) &&
+                          photo.rating % 1 !== 0,
+                      }"
+                    >
                       {{ getStarIcon(star, photo.rating) }}
                     </span>
                   </div>
@@ -69,7 +76,9 @@
               </div>
               <div class="photo-meta">
                 <span class="meta-item">{{ formatDate(photo.date) }}</span>
-                <span class="meta-item">{{ formatFileSize(photo.fileSizeKB) }}</span>
+                <span class="meta-item">{{
+                  formatFileSize(photo.fileSizeKB)
+                }}</span>
               </div>
               <div class="tags">
                 <md-assist-chip
@@ -89,12 +98,20 @@
           </div>
         </div>
         <!-- 在MasonryWall内部放置哨兵元素 -->
-        <div v-if="index === photos.length - 1 || photos.length === 0" ref="sentinel" class="load-more-sentinel"></div>
+        <div
+          v-if="index === photos.length - 1 || photos.length === 0"
+          ref="sentinel"
+          class="load-more-sentinel"
+        ></div>
       </MasonryWall>
     </div>
 
     <!-- 方形网格布局 -->
-    <div v-if="!isLoading && props.layout === 'grid'" class="grid-container" ref="gridContainer">
+    <div
+      v-if="!isLoading && props.layout === 'grid'"
+      class="grid-container"
+      ref="gridContainer"
+    >
       <div class="grid-items">
         <div
           v-for="(photo, index) in photos"
@@ -110,21 +127,31 @@
               loading="lazy"
               @load="handleImageLoad(photo.id)"
               @error="handleImageError(photo.id)"
-              :class="{'image-loading': imageStatus[photo.id] === 'loading'}"
+              :class="{ 'image-loading': imageStatus[photo.id] === 'loading' }"
             />
             <!-- 加载中动画 -->
-            <div v-if="imageStatus[photo.id] === 'loading'" class="img-loading-indicator">
+            <div
+              v-if="imageStatus[photo.id] === 'loading'"
+              class="img-loading-indicator"
+            >
               <md-circular-progress indeterminate size="small" />
             </div>
             <!-- 加载失败占位 -->
-            <div v-if="imageStatus[photo.id] === 'error'" class="img-error-indicator">
+            <div
+              v-if="imageStatus[photo.id] === 'error'"
+              class="img-error-indicator"
+            >
               <md-icon>broken_image</md-icon>
             </div>
           </div>
         </div>
       </div>
       <!-- 哨兵元素 - 放在网格容器外部，确保能被正确检测 -->
-      <div v-if="photos.length > 0" ref="sentinel" class="load-more-sentinel"></div>
+      <div
+        v-if="photos.length > 0"
+        ref="sentinel"
+        class="load-more-sentinel"
+      ></div>
     </div>
 
     <!-- 加载更多状态 -->
@@ -137,7 +164,9 @@
             <div class="dot"></div>
           </div>
         </div>
-        <p class="md-typescale-body-medium load-more-text">正在加载更多照片...</p>
+        <p class="md-typescale-body-medium load-more-text">
+          正在加载更多照片...
+        </p>
       </div>
     </div>
 
@@ -145,7 +174,9 @@
     <div v-if="!hasMore && photos.length > 0" class="no-more-state">
       <div class="no-more-content">
         <md-icon class="no-more-icon">check_circle</md-icon>
-        <p class="md-typescale-body-medium no-more-text">已经到底了，没有更多照片了</p>
+        <p class="md-typescale-body-medium no-more-text">
+          已经到底了，没有更多照片了
+        </p>
       </div>
     </div>
 
@@ -159,244 +190,256 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import MasonryWall from '@yeger/vue-masonry-wall'
-import API_CONFIG from '@/config/api'
-import { usePhotoStore } from '@/stores/photoStore'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from "vue";
+import MasonryWall from "@yeger/vue-masonry-wall";
+import API_CONFIG from "@/config/api";
+import { usePhotoStore } from "@/stores/photoStore";
 
 const props = defineProps({
   photos: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   isLoading: {
     type: Boolean,
-    default: false
+    default: false,
   },
   loadingType: {
     type: String,
-    default: 'photos'
+    default: "photos",
   },
   isLoadMore: {
     type: Boolean,
-    default: false
+    default: false,
   },
   hasMore: {
     type: Boolean,
-    default: true
+    default: true,
   },
   layout: {
     type: String,
-    default: 'masonry'
-  }
-})
+    default: "masonry",
+  },
+});
 
-const emit = defineEmits(['open-photo-detail', 'load-more', 'tag-click', 'ready'])
+const emit = defineEmits([
+  "open-photo-detail",
+  "load-more",
+  "tag-click",
+  "ready",
+]);
 
-const gridContainer = ref(null)
-let observer = null
-const sentinel = ref(null)
+const gridContainer = ref(null);
+let observer = null;
+const sentinel = ref(null);
 
 // 使用 Pinia store
-const photoStore = usePhotoStore()
+const photoStore = usePhotoStore();
 
 // 获取滚动容器，优先使用父级容器，否则使用window
-const scrollContainer = ref(null)
+const scrollContainer = ref(null);
 
 // 图片加载状态管理
-const imageStatus = ref({}) // { [photo.id]: 'loading' | 'loaded' | 'error' }
+const imageStatus = ref({}); // { [photo.id]: 'loading' | 'loaded' | 'error' }
 
 // 监听 photos，初始化每张图片的加载状态
-watch(() => props.photos, (newPhotos) => {
-  const newIds = newPhotos.map(p => p.id);
-  // 添加新的
-  newPhotos.forEach(photo => {
-    if (!(photo.id in imageStatus.value)) {
-      imageStatus.value[photo.id] = 'loading';
-    }
-  });
-  // 移除不存在的
-  Object.keys(imageStatus.value).forEach(id => {
-    if (!newIds.includes(id)) {
-      delete imageStatus.value[id];
-    }
-  });
-}, { immediate: true });
+watch(
+  () => props.photos,
+  (newPhotos) => {
+    const newIds = newPhotos.map((p) => p.id);
+    // 添加新的
+    newPhotos.forEach((photo) => {
+      if (!(photo.id in imageStatus.value)) {
+        imageStatus.value[photo.id] = "loading";
+      }
+    });
+    // 移除不存在的
+    Object.keys(imageStatus.value).forEach((id) => {
+      if (!newIds.includes(id)) {
+        delete imageStatus.value[id];
+      }
+    });
+
+    setTimeout(() => {
+      setupIntersectionObserver();
+    }, 600);
+  },
+  { immediate: true }
+);
 
 const handleImageLoad = (photoId) => {
-  imageStatus.value[photoId] = 'loaded'
-}
+  imageStatus.value[photoId] = "loaded";
+};
 const handleImageError = (photoId) => {
-  imageStatus.value[photoId] = 'error'
-}
+  imageStatus.value[photoId] = "error";
+};
 
 // 设置 Intersection Observer 监听滚动到底部
 const setupIntersectionObserver = () => {
   if (!sentinel.value) {
-    console.log('❌ No sentinel element found')
-    return
+    console.log("❌ No sentinel element found");
+    return;
   }
-  if (observer) observer.disconnect()
+  if (observer) observer.disconnect();
 
   // 使用检测到的滚动容器作为根元素
-  const root = scrollContainer.value || null
+  const root = scrollContainer.value || null;
 
   observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting && !props.isLoadMore && props.hasMore) {
-          console.log('🚀 Triggering load-more event')
-          emit('load-more')
+          console.log("🚀 Triggering load-more event");
+          emit("load-more");
         }
-      })
+      });
     },
     {
       root: root,
-      rootMargin: '300px', // 提前触发
-      threshold: 0.01
+      rootMargin: "300px", // 提前触发
+      threshold: 0.01,
     }
-  )
+  );
 
   // 确保观察的是最新的sentinel元素
   if (sentinel.value) {
-    observer.observe(sentinel.value)
+    observer.observe(sentinel.value);
   }
-}
-onMounted(async() => {
-  // 设置滚动容器为最近的滚动父元素
-  if (gridContainer.value) {
-    let parent = gridContainer.value.parentElement
-    while (parent && parent !== document.body) {
-      const style = window.getComputedStyle(parent)
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        scrollContainer.value = parent
-        break
-      }
-      parent = parent.parentElement
-    }
-  }
-
-  // 初始化标签数据
-  await photoStore.initTagsData()
+};
+onMounted(async () => {
+  await photoStore.initTagsData();
 
   // 延迟设置Intersection Observer，确保MasonryWall已经渲染完成
   setTimeout(() => {
-    setupIntersectionObserver()
-    emit('ready')
-  }, 600)
-})
+    // 设置滚动容器为最近的滚动父元素
+    if (gridContainer.value) {
+      let parent = gridContainer.value.parentElement;
+      while (parent && parent !== document.body) {
+        const style = window.getComputedStyle(parent);
+        if (style.overflowY === "auto" || style.overflowY === "scroll") {
+          scrollContainer.value = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+    }
 
-// 当照片数量变化时重新设置观察器
-watch(() => props.photos, async () => {
-  // 延迟设置，确保MasonryWall布局已经更新
-  setTimeout(() => {
-    setupIntersectionObserver()
-  }, 600)
-})
+    setupIntersectionObserver();
+    emit("ready");
+  }, 600);
+});
 
-watch(() => props.layout, async () => {
-  await nextTick()
-  reconfigureObserver()
-})
+watch(
+  () => props.layout,
+  async () => {
+    await nextTick();
+    reconfigureObserver();
+  }
+);
 
 onUnmounted(() => {
   if (observer) {
-    observer.disconnect()
+    observer.disconnect();
   }
-})
+});
 
 // 公开方法：重新配置Intersection Observer
 const reconfigureObserver = () => {
-  console.log('🔄 Reconfiguring Intersection Observer')
+  console.log("🔄 Reconfiguring Intersection Observer");
   if (observer) {
-    observer.disconnect()
-    observer = null
+    observer.disconnect();
+    observer = null;
   }
-  setupIntersectionObserver()
-}
+  setupIntersectionObserver();
+};
 
 // 组件就绪时通知父组件
 defineExpose({
-  reconfigureObserver
-})
+  reconfigureObserver,
+});
 
 // 计算加载文本
 const loadingText = computed(() => {
   const texts = {
-    photos: '正在加载照片...',
-    search: '正在搜索...',
-    recommend: '正在加载推荐...',
-    tags: '正在加载标签...',
-    folders: '正在加载文件夹...',
-    locations: '正在加载地点...'
-  }
-  return texts[props.loadingType] || '正在加载...'
-})
+    photos: "正在加载照片...",
+    search: "正在搜索...",
+    recommend: "正在加载推荐...",
+    tags: "正在加载标签...",
+    folders: "正在加载文件夹...",
+    locations: "正在加载地点...",
+  };
+  return texts[props.loadingType] || "正在加载...";
+});
 
 // 方法
 const openPhotoDetail = (photo) => {
-  emit('open-photo-detail', photo)
-}
+  emit("open-photo-detail", photo);
+};
 
 const handleTagClick = (tag, event) => {
-  event.stopPropagation()
-  emit('tag-click', tag)
-}
+  event.stopPropagation();
+  emit("tag-click", tag);
+};
 
 // 格式化日期
 const formatDate = (dateString) => {
-  if (!dateString) return ''
+  if (!dateString) return "";
   try {
-    const date = new Date(dateString)
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
+    const date = new Date(dateString);
+    return date.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   } catch {
-    return dateString
+    return dateString;
   }
-}
+};
 
 // 获取星星图标
 const getStarIcon = (star, rating) => {
-  if (rating === null || rating === undefined || rating === 0) return 'star_outline'
+  if (rating === null || rating === undefined || rating === 0)
+    return "star_outline";
 
   if (star <= Math.floor(rating)) {
-    return 'star'
+    return "star";
   } else if (star === Math.ceil(rating) && rating % 1 !== 0) {
-    return 'star_half'
+    return "star_half";
   } else {
-    return 'star_outline'
+    return "star_outline";
   }
-}
+};
 
 // 格式化文件大小
 const formatFileSize = (fileSizeKB) => {
-  if (!fileSizeKB) return ''
+  if (!fileSizeKB) return "";
   if (fileSizeKB < 1024) {
-    return `${fileSizeKB} KB`
+    return `${fileSizeKB} KB`;
   } else {
-    const fileSizeMB = (fileSizeKB / 1024).toFixed(1)
-    return `${fileSizeMB} MB`
+    const fileSizeMB = (fileSizeKB / 1024).toFixed(1);
+    return `${fileSizeMB} MB`;
   }
-}
+};
 
 const getImageUrl = (photo) => {
-  if (!photo) return ''
-  let url = photo.compressedFilePath || photo.filePath
-  if (!url) return ''
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-    return url
+  if (!photo) return "";
+  let url = photo.compressedFilePath || photo.filePath;
+  if (!url) return "";
+  if (
+    url.startsWith("http://") ||
+    url.startsWith("https://") ||
+    url.startsWith("data:")
+  ) {
+    return url;
   }
   if (url.startsWith(API_CONFIG.UPLOAD_PATH)) {
-    return `${API_CONFIG.BASE_URL}${url}`
+    return `${API_CONFIG.BASE_URL}${url}`;
   }
-  return url
-}
+  return url;
+};
 </script>
 
 <style scoped>
@@ -499,20 +542,22 @@ const getImageUrl = (photo) => {
 
 .img-loading-indicator {
   position: absolute;
-  left: 50%; top: 50%;
+  left: 50%;
+  top: 50%;
   transform: translate(-50%, -50%);
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.6);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 50%;
   padding: 12px;
 }
 
 .img-error-indicator {
   position: absolute;
-  left: 50%; top: 50%;
+  left: 50%;
+  top: 50%;
   transform: translate(-50%, -50%);
   z-index: 2;
   display: flex;
@@ -542,7 +587,7 @@ const getImageUrl = (photo) => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
   color: white;
   padding: 16px;
   opacity: 0;
@@ -583,7 +628,7 @@ const getImageUrl = (photo) => {
 
 .star-icon.filled {
   color: var(--md-sys-color-primary);
-  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 48;
+  font-variation-settings: "FILL" 1, "wght" 700, "GRAD" 0, "opsz" 48;
 }
 
 .star-icon.half {
@@ -692,7 +737,9 @@ const getImageUrl = (photo) => {
 
 /* 动画关键帧 */
 @keyframes bounce {
-  0%, 80%, 100% {
+  0%,
+  80%,
+  100% {
     transform: scale(0.8);
     opacity: 0.5;
   }
@@ -703,7 +750,8 @@ const getImageUrl = (photo) => {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -786,5 +834,4 @@ const getImageUrl = (photo) => {
     gap: 6px;
   }
 }
-
 </style>
