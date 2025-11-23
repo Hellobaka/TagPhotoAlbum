@@ -113,6 +113,7 @@
           :search-query="searchQuery"
           :sort-by="sortBy"
           :sort-order="sortOrder"
+          :current-layout="currentLayout"
           @toggle-tag="toggleTag"
           @select-folder="selectFolder"
           @select-location="selectLocation"
@@ -289,9 +290,6 @@ const setActiveTab = async (tabId) => {
   searchQuery.value = ''
   sortBy.value = 'date' // 重置为默认排序
   sortOrder.value = 'desc' // 重置为默认排序
-
-  // 保存配置
-  saveConfigToStorage()
 
   // 更新路由URL
   if (tabId === 'recommend') {

@@ -51,20 +51,20 @@
       <div class="layout-controls">
         <!-- 布局切换按钮 -->
         <div class="layout-toggle">
-          <md-filled-icon-button v-if="currentLayout === 'masonry'">
+          <md-filled-icon-button v-if="props.currentLayout === 'masonry'">
             <md-icon>view_stream</md-icon>
           </md-filled-icon-button>
           <md-icon-button
-            v-if="currentLayout !== 'masonry'"
+            v-if="props.currentLayout !== 'masonry'"
             @click="setLayout('masonry')"
           >
             <md-icon>view_stream</md-icon>
           </md-icon-button>
-          <md-filled-icon-button v-if="currentLayout === 'grid'">
+          <md-filled-icon-button v-if="props.currentLayout === 'grid'">
             <md-icon>grid_view</md-icon>
           </md-filled-icon-button>
           <md-icon-button
-            v-if="currentLayout !== 'grid'"
+            v-if="props.currentLayout !== 'grid'"
             @click="setLayout('grid')"
           >
             <md-icon>grid_view</md-icon>
@@ -99,8 +99,7 @@
 import { computed, onMounted, ref } from "vue";
 const sortItem = ref(null);
 
-// 布局模式
-const currentLayout = ref("masonry"); // 默认瀑布流
+// 布局模式 - 现在通过props从父组件接收
 
 const props = defineProps({
   selectedTags: {
@@ -130,6 +129,10 @@ const props = defineProps({
   sortOrder: {
     type: String,
     default: "desc",
+  },
+  currentLayout: {
+    type: String,
+    default: "masonry",
   },
 });
 
@@ -189,7 +192,6 @@ const handleSortChange = async () => {
 
 // 设置布局模式
 const setLayout = (layout) => {
-  currentLayout.value = layout;
   emit("layout-change", layout);
 };
 
