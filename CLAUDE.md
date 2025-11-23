@@ -38,6 +38,7 @@ TagPhotoAlbum is a Vue.js photo management application with tagging, categorizat
 - **authStore**: JWT authentication, login/logout, route guards, passkey management
 - **photoStore**: Photo CRUD operations, tagging, filtering, search, pagination
 - **notificationStore**: Global snackbar notifications
+- **themeStore**: Theme management (light/dark mode)
 
 ### API Integration
 - Centralized API client in `src/api/photoApi.js`
@@ -120,7 +121,7 @@ App
 - Configurable backend address for deployment flexibility
 - Progressive loading with loading states and error handling
 
-### Recent Updates (Last Updated: 2025-10-25)
+### Recent Updates (Last Updated: 2025-11-23)
 
 #### Lazy Loading & Performance
 - **Pagination**: All tab pages load only first page (20 photos)
@@ -143,3 +144,52 @@ App
 - **Centralized Config**: Backend address and API configuration in one location
 - **Easy Deployment**: Simple configuration changes for different environments
 - **Proxy Setup**: Development proxy configured for backend communication
+
+### Additional Development Information
+
+#### File Structure
+- `src/` - Main source code directory
+- `src/assets/` - Static assets (CSS, images)
+- `src/components/` - Vue components
+- `src/config/` - Configuration files
+- `src/stores/` - Pinia stores
+- `src/views/` - Page components
+- `src/router/` - Routing configuration
+- `src/api/` - API client
+- `src/utils/` - Utility functions
+
+#### Key Components
+- **PhotoGrid.vue**: Main photo display component with masonry layout
+- **Sidebar.vue**: Navigation and filtering sidebar
+- **PhotoDialog.vue**: Photo detail and editing modal
+- **CategorizeDialog.vue**: Batch categorization interface
+- **UploadZone.vue**: Drag-and-drop upload area
+- **FilterStatus.vue**: Active filter display
+
+#### Authentication Flow
+1. Login with username/password or passkey
+2. JWT token stored in localStorage
+3. Token automatically added to API requests
+4. Route guards protect authenticated routes
+5. Token validation and refresh handled automatically
+
+#### Data Loading Strategy
+- **Lazy Loading**: Photos loaded in pages of 20
+- **Infinite Scroll**: Next page loaded when user scrolls to bottom
+- **Filter Data**: Loaded on-demand when sidebar is expanded
+- **Recommendations**: AI-recommended photos with exclusion support
+
+#### Performance Considerations
+- Images are progressively loaded with placeholders
+- Components are optimized for rendering performance
+- State management is centralized to prevent inconsistencies
+- API calls are batched and cached where appropriate
+
+### Environment Variables
+- `VITE_API_BASE_URL`: Backend API base URL (defaults to http://localhost:5085)
+- `VITE_HMAC_KEY`: HMAC signature key for authentication (should match backend)
+
+### Build Process
+- Vite build with manual chunk splitting for optimized bundles
+- Rollup configuration separates vendor libraries from application code
+- Development proxy configured for API requests during development
