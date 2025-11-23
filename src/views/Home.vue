@@ -305,7 +305,7 @@ const setActiveTab = async (tabId) => {
     switch (tabId) {
       case 'recommend':
         // 推荐页面：获取推荐照片
-        await photoStore.getRecommendPhotos()
+        await photoStore.getRecommendPhotos([])
         break
       case 'uncategorized':
         // 未分类页面：获取未分类照片
@@ -452,14 +452,6 @@ const handleRefresh = async () => {
     notificationStore.showError('刷新数据失败')
   } finally {
     isRefreshing.value = false
-  }
-}
-
-const refreshRecommendPhotos = async () => {
-  try {
-    await photoStore.getRecommendPhotos()
-  } catch (error) {
-    console.error('Failed to refresh recommend photos:', error)
   }
 }
 
@@ -622,7 +614,7 @@ const handleLoadMoreUncategorized = async () => {
 // 懒加载更多照片
 const handleLoadMore = async () => {
   if (activeTab.value === 'recommend') {
-    await handleLoadMoreRecommend()
+    await photoStore.getRecommendPhotos()
     return
   }
 
@@ -694,10 +686,8 @@ watch(() => route.params.tabId, async (newTabId) => {
   // 根据路由参数设置活动标签页
   if (!newTabId) {
     // 根路径，设置为推荐页面
-    if (activeTab.value !== 'recommend') {
-      activeTab.value = 'recommend'
-      await setActiveTab('recommend')
-    }
+    activeTab.value = 'recommend'
+    await setActiveTab(activeTab.value)
   } else {
     // 有tabId参数
     if (tabs.some(tab => tab.id === newTabId) && activeTab.value !== newTabId) {

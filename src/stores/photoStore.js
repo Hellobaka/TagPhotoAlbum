@@ -412,18 +412,24 @@ export const usePhotoStore = defineStore('photos', {
 
     // 获取推荐照片
     async getRecommendPhotos(excludeIds = null) {
+      if (this.isLoadMore || !this.hasMore) return
       try {
         this.setLoadingState('recommend', true)
         this.error = null
+        this.hasMore = true
 
         // 如果没有提供excludeIds，使用上次请求的ID列表
         const idsToExclude = excludeIds !== null ? excludeIds : this.lastRecommendPhotoIds
 
         const response = await photoApi.getRecommendPhotos(idsToExclude)
-        this.recommendPhotos = response.data || []
+        this.recommendPhotos = (response.data || [])
 
         // 记录本次请求返回的图片ID，供下次调用使用
         this.lastRecommendPhotoIds = this.recommendPhotos.map(photo => photo.id)
+
+        if (this.recommendPhotos.length < 20) {
+          this.hasMore = false
+        }
 
         return this.recommendPhotos
       } catch (error) {
