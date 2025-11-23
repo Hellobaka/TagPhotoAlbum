@@ -567,14 +567,22 @@ export const usePhotoStore = defineStore('photos', {
       try {
         this.setLoadingState('photos', true)
         this.error = null
-        
-        // 从formData获取文件列表以计算并发数
+
+        // 从formData获取文件列表
         const files = formData.getAll('files')
         const fileCount = files.length
-        
-        // 并发上传所有文件
+
+        if (fileCount === 0) {
+          throw new Error('没有选择文件')
+        }
+
+        // 设置最大并发数
+        const MAX_CONCURRENT_UPLOADS = 5
         let completedFiles = 0
-        const uploadPromises = files.map((file, index) => {
+        let failedFiles = 0
+
+        // 创建文件上传任务队列
+        const uploadTasks = files.map((file, index) => async () => {
           const singleFileFormData = new FormData()
           singleFileFormData.append('files', file)
 
@@ -594,48 +602,85 @@ export const usePhotoStore = defineStore('photos', {
               const currentOverallProgress = completedProgress + fileProgress
 
               onUploadProgress({
-                loaded: Math.min(95, Math.round(currentOverallProgress)),
+                loaded: Math.round(currentOverallProgress),
                 total: 100
               })
             }
           }
 
-          return photoApi.uploadPhotos(singleFileFormData, fileProgressCallback)
-            .then(result => {
-              completedFiles++
+          try {
+            // 为每个文件创建独立的超时控制
+            const uploadPromise = photoApi.uploadPhotos(singleFileFormData, fileProgressCallback)
+
+            const result = await Promise.race([
+              uploadPromise,
+              new Promise((_, reject) => {
+                setTimeout(() => reject(new Error(`文件上传超时 (${UPLOAD_CONFIG.TIMEOUT_PER_IMAGE / 1000}秒)`)), UPLOAD_CONFIG.TIMEOUT_PER_IMAGE)
+              })
+            ])
+
+            completedFiles++
+
+            // 更新总体进度（但不显示100%，直到所有文件都完成）
+            if (onUploadProgress) {
+              const completedProgress = completedFiles * (100 / fileCount)
+              // 只有当不是最后一个文件时才更新进度
+              if (completedFiles < fileCount) {
+                onUploadProgress({
+                  loaded: Math.round(completedProgress),
+                  total: 100
+                })
+              }
+              // 最后一个文件的100%进度将在所有文件完成后统一设置
+            }
+
+            return result
+          } catch (error) {
+            failedFiles++
+            throw error
+          }
+        })
+
+        // 并发控制函数
+        const runWithConcurrency = async (tasks, maxConcurrent) => {
+          const results = []
+          const executing = []
+
+          for (const task of tasks) {
+            const p = task().then(result => {
+              executing.splice(executing.indexOf(p), 1)
               return result
             })
-        })
-        
-        // 计算整体超时时间
-        const overallTimeout = Math.min(
-          fileCount * UPLOAD_CONFIG.TIMEOUT_PER_IMAGE,
-          UPLOAD_CONFIG.MAX_TIMEOUT
-        )
 
-        // 为每个上传请求添加超时控制
-        const uploadPromisesWithTimeout = uploadPromises.map(promise =>
-          Promise.race([
-            promise,
-            new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('单个文件上传超时')), UPLOAD_CONFIG.TIMEOUT_PER_IMAGE)
-            })
-          ])
-        )
+            executing.push(p)
+            results.push(p)
 
-        // 并发执行所有上传请求
-        const responses = await Promise.allSettled(uploadPromisesWithTimeout)
-        
-        // 检查是否有失败的上传
+            if (executing.length >= maxConcurrent) {
+              await Promise.race(executing)
+            }
+          }
+
+          return Promise.allSettled(results)
+        }
+
+        // 执行上传任务，控制并发数
+        const responses = await runWithConcurrency(uploadTasks, MAX_CONCURRENT_UPLOADS)
+
+        // 检查上传结果
+        const successfulUploads = responses.filter(result => result.status === 'fulfilled')
         const failedUploads = responses.filter(result => result.status === 'rejected')
+
+        // 如果有失败的上传
         if (failedUploads.length > 0) {
           console.error('部分文件上传失败:', failedUploads)
-          // 如果有任何失败，抛出错误
-          throw new Error(`上传失败: ${failedUploads.length} 个文件上传失败`)
+          const errorMessage = failedUploads.length === fileCount ?
+            '所有文件上传失败' :
+            `${failedUploads.length} 个文件上传失败`
+          throw new Error(errorMessage)
         }
-        
+
         // 返回成功上传的响应
-        return responses.map(result => result.value)
+        return successfulUploads.map(result => result.value)
       } catch (error) {
         this.error = error.message
         const notificationStore = useNotificationStore()
