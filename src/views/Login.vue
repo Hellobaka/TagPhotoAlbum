@@ -1,6 +1,17 @@
 <template>
   <div class="login-container">
     <div class="login-card">
+      <!-- 主题切换按钮 -->
+      <div class="theme-toggle-section">
+        <md-icon-button
+          @click="toggleTheme"
+          class="theme-toggle-btn"
+          :title="getThemeTooltip"
+        >
+          <span class="material-symbols-outlined">{{ getThemeIcon }}</span>
+        </md-icon-button>
+      </div>
+
       <!-- Logo 区域 -->
       <div class="logo-section">
         <span class="material-symbols-outlined logo-icon">photo_library</span>
@@ -61,12 +72,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useThemeStore } from '@/stores/themeStore'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
 
 // 响应式数据
 const username = ref('')
@@ -130,6 +143,39 @@ const handlePasskeyLogin = async () => {
   }
 }
 
+// 主题切换相关
+const toggleTheme = () => {
+  themeStore.toggleTheme()
+}
+
+// 计算主题图标
+const getThemeIcon = computed(() => {
+  switch (themeStore.themeMode) {
+    case 'light':
+      return 'light_mode'
+    case 'dark':
+      return 'dark_mode'
+    case 'auto':
+      return 'auto_mode'
+    default:
+      return 'light_mode'
+  }
+})
+
+// 计算主题提示文本
+const getThemeTooltip = computed(() => {
+  switch (themeStore.themeMode) {
+    case 'light':
+      return '切换到深色模式'
+    case 'dark':
+      return '切换到自动模式'
+    case 'auto':
+      return '切换到浅色模式'
+    default:
+      return '切换主题'
+  }
+})
+
 // 组件挂载时检查 WebAuthn 支持
 checkPasskeySupport()
 </script>
@@ -152,6 +198,24 @@ checkPasskeySupport()
   width: 100%;
   max-width: 400px;
   text-align: center;
+  position: relative;
+}
+
+/* 主题切换按钮样式 */
+.theme-toggle-section {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.theme-toggle-btn {
+  color: var(--md-sys-color-on-surface-variant);
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  color: var(--md-sys-color-on-surface);
+  transform: scale(1.1);
 }
 
 .logo-section {

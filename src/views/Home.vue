@@ -83,6 +83,14 @@
                   </md-icon-button>
                 </md-outlined-text-field>
               </div>
+              <!-- 主题切换按钮 -->
+              <md-icon-button
+                @click="toggleTheme"
+                class="theme-toggle-btn"
+                :title="getThemeTooltip"
+              >
+                <span class="material-symbols-outlined">{{ getThemeIcon }}</span>
+              </md-icon-button>
               <!-- 上传按钮 -->
               <md-filled-button
                 @click="showUploadZone = true"
@@ -176,6 +184,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useThemeStore } from '@/stores/themeStore'
 import Sidebar from '@/components/Sidebar.vue'
 import FilterStatus from '@/components/FilterStatus.vue'
 import PhotoGrid from '@/components/PhotoGrid.vue'
@@ -222,6 +231,7 @@ const tabs = [
 // 使用 Pinia store
 const photoStore = usePhotoStore()
 const notificationStore = useNotificationStore()
+const themeStore = useThemeStore()
 
 // 计算属性
 const getActiveTabLabel = computed(() => {
@@ -720,6 +730,39 @@ onMounted(async () => {
   }
 })
 
+// 主题切换相关
+const toggleTheme = () => {
+  themeStore.toggleTheme()
+}
+
+// 计算主题图标
+const getThemeIcon = computed(() => {
+  switch (themeStore.themeMode) {
+    case 'light':
+      return 'light_mode'
+    case 'dark':
+      return 'dark_mode'
+    case 'auto':
+      return 'auto_mode'
+    default:
+      return 'light_mode'
+  }
+})
+
+// 计算主题提示文本
+const getThemeTooltip = computed(() => {
+  switch (themeStore.themeMode) {
+    case 'light':
+      return '切换到深色模式'
+    case 'dark':
+      return '切换到自动模式'
+    case 'auto':
+      return '切换到浅色模式'
+    default:
+      return '切换主题'
+  }
+})
+
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
 })
@@ -798,6 +841,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+/* 主题切换按钮样式 */
+.theme-toggle-btn {
+  color: var(--md-sys-color-on-surface-variant);
+  transition: color 0.3s ease, transform 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  color: var(--md-sys-color-on-surface);
+  transform: scale(1.1);
 }
 
 .upload-button {
