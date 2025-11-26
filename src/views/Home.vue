@@ -39,94 +39,101 @@
       />
 
       <!-- 主内容区 -->
-      <div class="main-content">
-        <div class="content-header">
-          <div class="header-content">
-            <div class="header-title-section">
-              <!-- 移动端侧边栏切换按钮 -->
-              <md-icon-button
-                v-if="isMobile"
-                @click="toggleSidebar"
-                class="mobile-menu-button"
-              >
-                <span class="material-symbols-outlined">menu</span>
-              </md-icon-button>
-              <h1 class="md-typescale-headline-small">{{ getActiveTabLabel }}</h1>
-              <!-- 刷新按钮 -->
-              <md-icon-button
-                @click="handleRefresh"
-                :disabled="isRefreshing"
-                class="refresh-icon-button"
-              >
-                <span
-                  class="material-symbols-outlined refresh-icon"
-                  :class="{ 'refreshing': isRefreshing }">
-                  refresh
-                </span>
-              </md-icon-button>
-            </div>
-            <div class="header-actions">
-              <div class="search-box">
-                <md-outlined-text-field
-                  v-model="searchQuery"
-                  label="搜索图片"
-                  type="search"
-                  has-trailing-icon
+      <div class="main-content" @scroll="handleScroll">
+        <!-- Header 和 筛选条一起的容器 -->
+        <div class="header-filter-container" :class="{ 'header-hidden': isFilterHidden }">
+          <div class="content-header">
+            <div class="header-content">
+              <div class="header-title-section">
+                <!-- 移动端侧边栏切换按钮 -->
+                <md-icon-button
+                  v-if="isMobile"
+                  @click="toggleSidebar"
+                  class="mobile-menu-button"
                 >
-                  <span slot="leading-icon" class="material-symbols-outlined">search</span>
-                  <md-icon-button
-                    v-if="searchQuery"
-                    slot="trailing-icon"
-                    @click="clearSearch"
-                  >
-                    <span class="material-symbols-outlined">close</span>
-                  </md-icon-button>
-                </md-outlined-text-field>
+                  <span class="material-symbols-outlined">menu</span>
+                </md-icon-button>
+                <h1 class="md-typescale-headline-small">{{ getActiveTabLabel }}</h1>
+                <!-- 刷新按钮 -->
+                <md-icon-button
+                  @click="handleRefresh"
+                  :disabled="isRefreshing"
+                  class="refresh-icon-button"
+                >
+                  <span
+                    class="material-symbols-outlined refresh-icon"
+                    :class="{ 'refreshing': isRefreshing }">
+                    refresh
+                  </span>
+                </md-icon-button>
               </div>
-              <!-- 主题切换按钮 -->
-              <md-icon-button
-                @click="toggleTheme"
-                class="theme-toggle-btn"
-                :title="getThemeTooltip"
-              >
-                <span class="material-symbols-outlined">{{ getThemeIcon }}</span>
-              </md-icon-button>
-              <!-- 上传按钮 -->
-              <md-filled-button
-                @click="showUploadZone = true"
-                class="upload-button"
-              >
-                <md-icon slot="icon">add_photo_alternate</md-icon>
-                上传图片
-              </md-filled-button>
+              <div class="header-actions">
+                <div class="search-box">
+                  <md-outlined-text-field
+                    v-model="searchQuery"
+                    label="搜索图片"
+                    type="search"
+                    has-trailing-icon
+                  >
+                    <span slot="leading-icon" class="material-symbols-outlined">search</span>
+                    <md-icon-button
+                      v-if="searchQuery"
+                      slot="trailing-icon"
+                      @click="clearSearch"
+                    >
+                      <span class="material-symbols-outlined">close</span>
+                    </md-icon-button>
+                  </md-outlined-text-field>
+                </div>
+                <!-- 主题切换按钮 -->
+                <md-icon-button
+                  @click="toggleTheme"
+                  class="theme-toggle-btn"
+                  :title="getThemeTooltip"
+                >
+                  <span class="material-symbols-outlined">{{ getThemeIcon }}</span>
+                </md-icon-button>
+                <!-- 上传按钮 -->
+                <md-filled-button
+                  @click="showUploadZone = true"
+                  class="upload-button"
+                >
+                  <md-icon slot="icon">add_photo_alternate</md-icon>
+                  <span class="upload-button-text">上传图片</span>
+                </md-filled-button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- 筛选状态显示 - 推荐页面不显示筛选状态 -->
-        <FilterStatus
-          v-if="activeTab !== 'recommend'"
-          :selected-tags="selectedTags"
-          :selected-folder="selectedFolder"
-          :selected-location="selectedLocation"
-          :selected-ratings="selectedRatings"
-          :search-query="searchQuery"
-          :sort-by="sortBy"
-          :sort-order="sortOrder"
-          :current-layout="currentLayout"
-          @toggle-tag="toggleTag"
-          @select-folder="selectFolder"
-          @select-location="selectLocation"
-          @toggle-rating="toggleRating"
-          @clear-search="clearSearch"
-          @clear-all-filters="clearAllFilters"
-          @sort-change="handleSortChange"
-          @layout-change="handleLayoutChange"
-        />
+          <!-- 筛选状态显示 - 推荐页面不显示筛选状态 -->
+          <FilterStatus
+            v-if="activeTab !== 'recommend'"
+            :selected-tags="selectedTags"
+            :selected-folder="selectedFolder"
+            :selected-location="selectedLocation"
+            :selected-ratings="selectedRatings"
+            :search-query="searchQuery"
+            :sort-by="sortBy"
+            :sort-order="sortOrder"
+            :current-layout="currentLayout"
+            @toggle-tag="toggleTag"
+            @select-folder="selectFolder"
+            @select-location="selectLocation"
+            @toggle-rating="toggleRating"
+            @clear-search="clearSearch"
+            @clear-all-filters="clearAllFilters"
+            @sort-change="handleSortChange"
+            @layout-change="handleLayoutChange"
+          />
+        </div>
 
 
         <!-- 未分类页面分类按钮 -->
-        <div v-if="activeTab === 'uncategorized' && filteredPhotos.length > 0" class="categorize-section">
+        <div 
+          v-if="activeTab === 'uncategorized' && filteredPhotos.length > 0" 
+          class="categorize-section"
+          :class="{ 'header-hidden': isFilterHidden }"
+        >
           <div class="categorize-container">
             <md-filled-button
               @click="()=>startCategorization()"
@@ -218,6 +225,10 @@ const isMobile = ref(false)
 const photoGridRef = ref(null)
 const showPasskeyManagementDialog = ref(false)
 const currentLayout = ref('masonry') // 默认瀑布流布局
+const isFilterHidden = ref(false) // 筛选条隐藏状态
+let lastScrollTop = 0 // 记录上次滚动位置
+let scrollAccumulator = 0 // 累计滚动距离
+let scrollDirection = null // 滚动方向: 'up' 或 'down'
 
 // 标签页配置
 const tabs = [
@@ -678,6 +689,41 @@ const checkMobile = () => {
   isMobile.value = window.innerWidth <= 768
 }
 
+// 处理滚动事件，控制筛选条显示/隐藏
+const handleScroll = (event) => {
+  const currentScrollTop = event.target.scrollTop
+  const scrollDelta = currentScrollTop - lastScrollTop
+  
+  // 判断当前滚动方向
+  const currentDirection = scrollDelta > 0 ? 'down' : 'up'
+  
+  // 如果方向改变，重置累计器
+  if (scrollDirection !== currentDirection) {
+    scrollDirection = currentDirection
+    scrollAccumulator = 0
+  }
+  
+  // 累计滚动距离
+  scrollAccumulator += Math.abs(scrollDelta)
+  
+  // 向下滚动且总滚动距离大于50px，并且累计滚动超过200px时隐藏Header
+  if (currentDirection === 'down' && currentScrollTop > 50 && scrollAccumulator > 200) {
+    if (!isFilterHidden.value) {
+      isFilterHidden.value = true
+      scrollAccumulator = 0 // 重置累计器
+    }
+  } 
+  // 向上滚动且累计滚动超过100px时显示Header
+  else if (currentDirection === 'up' && scrollAccumulator > 100) {
+    if (isFilterHidden.value) {
+      isFilterHidden.value = false
+      scrollAccumulator = 0 // 重置累计器
+    }
+  }
+  
+  lastScrollTop = currentScrollTop
+}
+
 
 // 监听路由变化
 watch(() => route.params.tabId, async (newTabId) => {
@@ -775,13 +821,22 @@ onUnmounted(() => {
   background: var(--md-sys-color-surface);
 }
 
+/* Header 和筛选条容器 */
+.header-filter-container {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  transition: transform 0.3s ease;
+}
+
+.header-filter-container.header-hidden {
+  transform: translateY(-100%);
+}
+
 .content-header {
   padding: 24px;
   background: var(--md-sys-color-surface-container-low);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 /* FilterStatus sticky top 用变量控制 */
@@ -914,13 +969,18 @@ onUnmounted(() => {
 
 /* 未分类页面分类按钮样式 */
 .categorize-section {
-  margin-top: 24px;
   margin-left: 24px;
+  margin-right: 24px;
+  padding: 16px 0;
+  background: var(--md-sys-color-surface);
   position: sticky;
   top: var(--header-height);
   z-index: 9;
-  background: var(--md-sys-color-surface);
-  padding: 16px 0;
+  transition: top 0.3s ease;
+}
+
+.categorize-section.header-hidden {
+  top: 0;
 }
 
 .categorize-container {
@@ -1047,35 +1107,77 @@ onUnmounted(() => {
   }
 
   .home {
-    --header-height: 217px; /* 移动端 header 高度 */
+    --header-height: 222px; /* 移动端 header 高度优化 */
   }
+  
+  .content-header {
+    padding: 12px 16px;
+  }
+  
   .masonry-grid {
     column-count: 2;
   }
+  
   .header-content {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
-  }
-  .header-actions {
-    flex-direction: column;
     gap: 12px;
   }
-  .search-box {
-    min-width: auto;
+  
+  .header-title-section {
+    gap: 8px;
   }
+  
+  .header-title-section h1 {
+    font-size: 1.25rem;
+  }
+  
+  .header-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .search-box {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .search-box md-outlined-text-field {
+    width: 100%;
+  }
+  
+  .theme-toggle-btn {
+    flex-shrink: 0;
+  }
+  
+  .upload-button {
+    flex-shrink: 0;
+    padding: 0;
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .upload-button md-icon {
+    margin-left: 7px;
+  }
+  
+  /* 移动端隐藏上传按钮文字 */
+  .upload-button .upload-button-text {
+    display: none;
+  }
+  
   .sort-dropdown {
     min-width: auto;
     width: 100%;
   }
+  
   .global-upload-zone {
     padding: 20px;
-  }
-  .upload-button {
-    padding: 12px;
-  }
-  .upload-button .md-icon {
-    margin-right: 0;
   }
 }
 
