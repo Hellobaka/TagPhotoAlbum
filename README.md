@@ -6,7 +6,7 @@
 
 TagPhotoAlbum 是一个功能强大的照片管理系统，采用 Vue 3 + Pinia + Material Design 3 构建。通过智能标签系统、多维度分类和瀑布流展示，让照片管理变得简单高效。
 
-> **🔗 后端项目**: [TagPhotoAlbum.Server](https://github.com/Helloabaka/TagPhotoAlbum.Server) - ASP.NET Core 后端服务
+> **🔗 后端项目**: [TagPhotoAlbum.Server](https://github.com/Hellobaka/TagPhotoAlbum.Server) - ASP.NET Core 后端服务
 
 ---
 
@@ -86,7 +86,7 @@ git clone https://github.com/Helloabaka/TagPhotoAlbum.Server.git
 # 默认运行在 http://localhost:5085
 ```
 
-> **📖 后端项目地址**: [TagPhotoAlbum.Server](https://github.com/Helloabaka/TagPhotoAlbum.Server)
+> **📖 后端项目地址**: [TagPhotoAlbum.Server](https://github.com/Hellabaka/TagPhotoAlbum.Server)
 
 ---
 
