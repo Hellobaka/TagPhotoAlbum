@@ -219,6 +219,9 @@ const showPasskeyManagementDialog = ref(false);
 const showTagFilterDialog = ref(false);
 const currentLayout = ref("masonry");
 
+// 防抖定时器
+let searchDebounceTimer = null;
+
 // 标签页配置
 const tabs = [
   { id: "tags", label: "标签", icon: "local_offer" },
@@ -482,6 +485,25 @@ watch(
   },
   { immediate: true }
 );
+
+// 监听搜索输入变化（带防抖）
+watch(searchQuery, (newValue, oldValue) => {
+  // 如果是推荐页面，不触发搜索
+  if (activeTab.value === 'recommend') {
+    return;
+  }
+
+  // 清除之前的定时器
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+
+  // 设置新的定时器，500ms 后触发搜索
+  searchDebounceTimer = setTimeout(() => {
+    console.log('🔍 Search query changed:', newValue);
+    applyFilters(activeTab.value);
+  }, 500);
+});
 
 onMounted(async () => {
   const configLoaded = loadConfigFromStorage();

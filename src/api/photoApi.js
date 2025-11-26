@@ -148,7 +148,7 @@ export const photoApi = {
       params.ratings = filters.ratings.join(',')
     }
     if (filters.searchQuery) {
-      params.q = filters.searchQuery
+      params.searchQuery = filters.searchQuery
     }
     // 添加排序参数
     if (filters.sortBy) {
