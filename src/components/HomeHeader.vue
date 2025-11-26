@@ -19,7 +19,8 @@
         >
           <span
             class="material-symbols-outlined refresh-icon"
-            :class="{ 'refreshing': isRefreshing }">
+            :class="{ refreshing: isRefreshing }"
+          >
             refresh
           </span>
         </md-icon-button>
@@ -33,7 +34,9 @@
             type="search"
             has-trailing-icon
           >
-            <span slot="leading-icon" class="material-symbols-outlined">search</span>
+            <span slot="leading-icon" class="material-symbols-outlined"
+              >search</span
+            >
             <md-icon-button
               v-if="searchQuery"
               slot="trailing-icon"
@@ -52,10 +55,7 @@
           <span class="material-symbols-outlined">{{ themeIcon }}</span>
         </md-icon-button>
         <!-- 上传按钮 -->
-        <md-filled-button
-          @click="$emit('open-upload')"
-          class="upload-button"
-        >
+        <md-filled-button @click="$emit('open-upload')" class="upload-button">
           <md-icon slot="icon">add_photo_alternate</md-icon>
           <span class="upload-button-text">上传图片</span>
         </md-filled-button>
@@ -65,83 +65,83 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { useThemeStore } from '@/stores/themeStore'
+import { computed, ref, onMounted, onUnmounted } from "vue";
+import { useThemeStore } from "@/stores/themeStore";
 
 const props = defineProps({
   title: {
     type: String,
-    required: true
+    required: true,
   },
   searchQuery: {
     type: String,
-    default: ''
+    default: "",
   },
   isMobile: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 });
 
 const emit = defineEmits([
-  'toggle-sidebar',
-  'refresh',
-  'update:searchQuery',
-  'clear-search',
-  'open-upload'
+  "toggle-sidebar",
+  "refresh",
+  "update:searchQuery",
+  "clear-search",
+  "open-upload",
 ]);
 
 // 内部状态管理
-const themeStore = useThemeStore()
-const isRefreshing = ref(false)
+const themeStore = useThemeStore();
+const isRefreshing = ref(false);
 
 // 计算主题图标
 const themeIcon = computed(() => {
   switch (themeStore.themeMode) {
-    case 'light':
-      return 'light_mode'
-    case 'dark':
-      return 'dark_mode'
-    case 'auto':
-      return 'auto_mode'
+    case "light":
+      return "light_mode";
+    case "dark":
+      return "dark_mode";
+    case "auto":
+      return "auto_mode";
     default:
-      return 'light_mode'
+      return "light_mode";
   }
-})
+});
 
 // 计算主题提示文本
 const themeTooltip = computed(() => {
   switch (themeStore.themeMode) {
-    case 'light':
-      return '切换到深色模式'
-    case 'dark':
-      return '切换到自动模式'
-    case 'auto':
-      return '切换到浅色模式'
+    case "light":
+      return "切换到深色模式";
+    case "dark":
+      return "切换到自动模式";
+    case "auto":
+      return "切换到浅色模式";
     default:
-      return '切换主题'
+      return "切换主题";
   }
-})
+});
 
 // 主题切换
 const toggleTheme = () => {
-  themeStore.toggleTheme()
-}
+  themeStore.toggleTheme();
+};
 
 // 刷新处理
 const handleRefresh = async () => {
-  if (isRefreshing.value) return
-  
-  isRefreshing.value = true
+  if (isRefreshing.value) return;
+
+  isRefreshing.value = true;
   try {
-    await emit('refresh')
+    await emit("refresh");
   } finally {
     // 确保在操作完成后重置状态
     setTimeout(() => {
-      isRefreshing.value = false
-    }, 500)
+      isRefreshing.value = false;
+    }, 500);
   }
-}
+};
 </script>
 
 <style scoped>
@@ -231,40 +231,40 @@ const handleRefresh = async () => {
   .content-header {
     padding: 12px 16px;
   }
-  
+
   .header-content {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
   }
-  
+
   .header-title-section {
     gap: 8px;
   }
-  
+
   .header-title-section h1 {
     font-size: 1.25rem;
   }
-  
+
   .header-actions {
     flex-direction: row;
     align-items: center;
     gap: 8px;
   }
-  
+
   .search-box {
     flex: 1;
     min-width: 0;
   }
-  
+
   .search-box md-outlined-text-field {
     width: 100%;
   }
-  
+
   .theme-toggle-btn {
     flex-shrink: 0;
   }
-  
+
   .upload-button {
     flex-shrink: 0;
     padding: 0;
@@ -275,11 +275,11 @@ const handleRefresh = async () => {
     align-items: center;
     justify-content: center;
   }
-  
+
   .upload-button md-icon {
     margin-left: 7px;
   }
-  
+
   /* 移动端隐藏上传按钮文字 */
   .upload-button .upload-button-text {
     display: none;

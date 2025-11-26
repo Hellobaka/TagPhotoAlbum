@@ -1,234 +1,248 @@
 <script setup>
-import { ref, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { usePhotoStore } from '@/stores/photoStore'
-import PhotoEditor from '@/components/PhotoEditor.vue'
-import { useNotificationStore } from '../stores/notificationStore'
+import { ref, watch, computed, nextTick, onMounted, onUnmounted } from "vue";
+import { usePhotoStore } from "@/stores/photoStore";
+import PhotoEditor from "@/components/PhotoEditor.vue";
+import { useNotificationStore } from "../stores/notificationStore";
 
 const props = defineProps({
   isOpen: {
     type: Boolean,
-    default: false
+    default: false,
   },
   uncategorizedPhotos: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   totalUncategorizedCount: {
     type: Number,
-    default: 0
-  }
-})
+    default: 0,
+  },
+});
 
-const emit = defineEmits(['close', 'save-and-next', 'next', 'last'])
+const emit = defineEmits(["close", "save-and-next", "next", "last"]);
 
 // 响应式数据
-const currentIndex = ref(0)
-const currentDisplayIndex = ref(0)
-const editablePhoto = ref({})
-const newTag = ref('')
-const isSaving = ref(false)
-const tagsToRemove = ref([])
+const currentIndex = ref(0);
+const currentDisplayIndex = ref(0);
+const editablePhoto = ref({});
+const newTag = ref("");
+const isSaving = ref(false);
+const tagsToRemove = ref([]);
 
 // 使用 Pinia store
-const photoStore = usePhotoStore()
-const notificationStore = useNotificationStore()
+const photoStore = usePhotoStore();
+const notificationStore = useNotificationStore();
 
 // 计算属性 - 获取常用标签及其使用次数
 const popularTags = computed(() => {
-  return photoStore.computedTags.sort((a, b) => b.count - a.count)
-})
+  return photoStore.computedTags.sort((a, b) => b.count - a.count);
+});
 
 // 计算当前显示的图片
 const currentPhoto = computed(() => {
   // 如果store中有当前分类的照片，优先使用
   if (photoStore.currentCategorizePhoto) {
-    return photoStore.currentCategorizePhoto
+    return photoStore.currentCategorizePhoto;
   }
-  return props.uncategorizedPhotos[currentIndex.value] || null
-})
+  return props.uncategorizedPhotos[currentIndex.value] || null;
+});
 
 // 监听当前图片变化
-watch(currentPhoto, (newPhoto) => {
-  if (newPhoto) {
-    editablePhoto.value = { ...newPhoto }
-    newTag.value = ''
-    tagsToRemove.value = []
-  } else {
-    editablePhoto.value = {}
-    newTag.value = ''
-    tagsToRemove.value = []
-  }
-}, { immediate: true })
+watch(
+  currentPhoto,
+  (newPhoto) => {
+    if (newPhoto) {
+      editablePhoto.value = { ...newPhoto };
+      newTag.value = "";
+      tagsToRemove.value = [];
+    } else {
+      editablePhoto.value = {};
+      newTag.value = "";
+      tagsToRemove.value = [];
+    }
+  },
+  { immediate: true }
+);
 
 // 监听对话框打开状态
-watch(() => props.isOpen, (newValue) => {
-  if (newValue) {
-    // 如果有当前分类的照片，重置索引
-    if (photoStore.currentCategorizePhoto) {
-      // 找到当前照片在未分类列表中的索引
-      const index = props.uncategorizedPhotos.findIndex(
-        photo => photo.id === photoStore.currentCategorizePhoto.id
-      )
-      currentIndex.value = index >= 0 ? index : 0
+watch(
+  () => props.isOpen,
+  (newValue) => {
+    if (newValue) {
+      // 如果有当前分类的照片，重置索引
+      if (photoStore.currentCategorizePhoto) {
+        // 找到当前照片在未分类列表中的索引
+        const index = props.uncategorizedPhotos.findIndex(
+          (photo) => photo.id === photoStore.currentCategorizePhoto.id
+        );
+        currentIndex.value = index >= 0 ? index : 0;
+      } else {
+        // 重置到第一张图片
+        currentIndex.value = 0;
+      }
     } else {
-      // 重置到第一张图片
-      currentIndex.value = 0
+      // 关闭对话框时清除当前分类照片
+      photoStore.currentCategorizePhoto = null;
     }
-  } else {
-    // 关闭对话框时清除当前分类照片
-    photoStore.currentCategorizePhoto = null
   }
-})
+);
 
 // 方法
 const closeDialog = () => {
-  emit('close')
-}
+  emit("close");
+};
 
 const addTag = (tagToAdd = null) => {
   // 如果传入了标签参数，使用参数；否则使用 newTag.value
-  const trimmedTag = tagToAdd ? tagToAdd.trim() : newTag.value.trim()
-  if (!trimmedTag) return
-  
+  const trimmedTag = tagToAdd ? tagToAdd.trim() : newTag.value.trim();
+  if (!trimmedTag) return;
+
   // 检查标签是否已存在
   if (editablePhoto.value.tags.includes(trimmedTag)) {
     // 如果标签在待删除列表中，从列表中移除（取消删除）
-    const removeIndex = tagsToRemove.value.indexOf(trimmedTag)
+    const removeIndex = tagsToRemove.value.indexOf(trimmedTag);
     if (removeIndex > -1) {
-      tagsToRemove.value.splice(removeIndex, 1)
-      newTag.value = ''
+      tagsToRemove.value.splice(removeIndex, 1);
+      newTag.value = "";
     }
     // 如果标签已存在且不在待删除列表中，不做任何操作
   } else {
     // 标签不存在，添加到标签列表
-    editablePhoto.value.tags.push(trimmedTag)
-    newTag.value = ''
+    editablePhoto.value.tags.push(trimmedTag);
+    newTag.value = "";
   }
-}
+};
 
 const toggleTagForRemoval = (tag) => {
-  const index = tagsToRemove.value.indexOf(tag)
+  const index = tagsToRemove.value.indexOf(tag);
   if (index > -1) {
     // 如果标签已经在待删除列表中，则移除
-    tagsToRemove.value.splice(index, 1)
+    tagsToRemove.value.splice(index, 1);
   } else {
     // 如果标签不在待删除列表中，则添加
-    tagsToRemove.value.push(tag)
+    tagsToRemove.value.push(tag);
   }
-}
+};
 
 const toggleTag = (tag) => {
   // 检查标签是否在照片的标签列表中
-  const tagExistsInPhoto = editablePhoto.value.tags.includes(tag)
-  
+  const tagExistsInPhoto = editablePhoto.value.tags.includes(tag);
+
   if (tagExistsInPhoto) {
     // 标签已存在，切换待删除状态
-    const index = tagsToRemove.value.indexOf(tag)
+    const index = tagsToRemove.value.indexOf(tag);
     if (index > -1) {
       // 标签已被标记为删除，取消删除标记
-      tagsToRemove.value.splice(index, 1)
+      tagsToRemove.value.splice(index, 1);
     } else {
       // 标签未被标记为删除，标记为删除
-      tagsToRemove.value.push(tag)
+      tagsToRemove.value.push(tag);
     }
   } else {
     // 标签不存在，添加标签
-    editablePhoto.value.tags.push(tag)
+    editablePhoto.value.tags.push(tag);
   }
-}
+};
 
 const handleSaveAndNext = async () => {
-  if (isSaving.value) return
+  if (isSaving.value) return;
 
   try {
-    isSaving.value = true
+    isSaving.value = true;
 
     // 在保存前移除标记为删除的标签
     if (tagsToRemove.value.length > 0) {
-      editablePhoto.value.tags = editablePhoto.value.tags.filter(tag => !tagsToRemove.value.includes(tag))
-      tagsToRemove.value = []
+      editablePhoto.value.tags = editablePhoto.value.tags.filter(
+        (tag) => !tagsToRemove.value.includes(tag)
+      );
+      tagsToRemove.value = [];
     }
-    if (editablePhoto.value.folder == '未分类') {
-      editablePhoto.value.folder = '默认'
+    if (editablePhoto.value.folder == "未分类") {
+      editablePhoto.value.folder = "默认";
     }
-    await emit('save-and-next', editablePhoto.value)
+    await emit("save-and-next", editablePhoto.value);
 
     // 清除当前分类照片，以便后续使用正常索引
-    photoStore.currentCategorizePhoto = null
+    photoStore.currentCategorizePhoto = null;
 
-    await nextTick()
+    await nextTick();
     //goToNext(1)
-    currentDisplayIndex.value = currentDisplayIndex.value + 1
+    currentDisplayIndex.value = currentDisplayIndex.value + 1;
   } catch (error) {
-    console.error('保存图片信息失败:', error)
+    console.error("保存图片信息失败:", error);
   } finally {
-    isSaving.value = false
+    isSaving.value = false;
   }
-}
+};
 
 const handleNext = () => {
-  emit('next')
+  emit("next");
 
   // 清除当前分类照片，以便后续使用正常索引
-  photoStore.currentCategorizePhoto = null
+  photoStore.currentCategorizePhoto = null;
 
-  goToNext(1)
-}
+  goToNext(1);
+};
 
 const handleLast = () => {
   // 清除当前分类照片，以便后续使用正常索引
-  photoStore.currentCategorizePhoto = null
+  photoStore.currentCategorizePhoto = null;
 
-  goToNext(-1)
-}
+  goToNext(-1);
+};
 
 const goToNext = (i) => {
-  const nextIndex = currentIndex.value + i
+  const nextIndex = currentIndex.value + i;
   if (i > 0) {
     // 检查是否超出当前缓存范围
     if (nextIndex < props.uncategorizedPhotos.length - 1) {
       // 还在缓存范围内，直接前进
-      currentIndex.value++
-      currentDisplayIndex.value = currentIndex.value
+      currentIndex.value++;
+      currentDisplayIndex.value = currentIndex.value;
     } else {
       // 超出缓存范围，检查是否还有更多数据
-      if (photoStore.hasMore && props.totalUncategorizedCount > props.uncategorizedPhotos.length) {
+      if (
+        photoStore.hasMore &&
+        props.totalUncategorizedCount > props.uncategorizedPhotos.length
+      ) {
         // 还有更多数据，加载下一页
-        loadNextPage()
+        loadNextPage();
       } else {
-        notificationStore.showError('没有更多数据了')
+        notificationStore.showError("没有更多数据了");
       }
     }
   } else {
-    if(nextIndex >= 0) {
-      currentIndex.value = currentIndex.value - 1
-      currentDisplayIndex.value = currentIndex.value
+    if (nextIndex >= 0) {
+      currentIndex.value = currentIndex.value - 1;
+      currentDisplayIndex.value = currentIndex.value;
     }
   }
-}
+};
 
 // 加载下一页未分类照片
 const loadNextPage = async () => {
   try {
-    console.log('📥 Loading next page of uncategorized photos...')
-    const loadedCount = await photoStore.loadMoreUncategorizedPhotos()
+    console.log("📥 Loading next page of uncategorized photos...");
+    const loadedCount = await photoStore.loadMoreUncategorizedPhotos();
 
     if (loadedCount > 0) {
       // 加载成功后前进到下一张
-      currentIndex.value++
-      currentDisplayIndex.value = currentIndex.value
-      console.log(`✅ Loaded ${loadedCount} more photos, now at index ${currentIndex.value}`)
+      currentIndex.value++;
+      currentDisplayIndex.value = currentIndex.value;
+      console.log(
+        `✅ Loaded ${loadedCount} more photos, now at index ${currentIndex.value}`
+      );
     } else {
       // 没有更多数据，关闭对话框
-      console.log('❌ No more photos to load')
-      closeDialog()
+      console.log("❌ No more photos to load");
+      closeDialog();
     }
   } catch (error) {
-    console.error('Failed to load next page:', error)
+    console.error("Failed to load next page:", error);
     // 加载失败时也关闭对话框
-    closeDialog()
+    closeDialog();
   }
-}
+};
 </script>
 
 <template>
@@ -238,7 +252,9 @@ const loadNextPage = async () => {
         <div class="dialog-container" @click.stop>
           <div class="dialog-header">
             <h2 class="md-typescale-headline-small">
-              分类进度 ({{ currentDisplayIndex + 1 }}/{{ totalUncategorizedCount || uncategorizedPhotos.length }})
+              分类进度 ({{ currentDisplayIndex + 1 }}/{{
+                totalUncategorizedCount || uncategorizedPhotos.length
+              }})
             </h2>
             <md-icon-button @click="closeDialog" class="close-btn">
               <span class="material-symbols-outlined">close</span>
@@ -255,12 +271,14 @@ const loadNextPage = async () => {
               :all-folders="photoStore.allFolders"
               :show-no-photo="!currentPhoto"
               :no-photo-text="'没有更多未分类图片'"
-              @update:title="value => editablePhoto.title = value"
-              @update:description="value => editablePhoto.description = value"
-              @update:location="value => editablePhoto.location = value"
-              @update:folder="value => editablePhoto.folder = value"
-              @update:newTag="value => newTag = value"
-              @update:rating="value => editablePhoto.rating = value"
+              @update:title="(value) => (editablePhoto.title = value)"
+              @update:description="
+                (value) => (editablePhoto.description = value)
+              "
+              @update:location="(value) => (editablePhoto.location = value)"
+              @update:folder="(value) => (editablePhoto.folder = value)"
+              @update:newTag="(value) => (newTag = value)"
+              @update:rating="(value) => (editablePhoto.rating = value)"
               @toggle-tag="toggleTag"
               @toggle-tag-for-removal="toggleTagForRemoval"
               @add-tag="addTag"
@@ -268,12 +286,31 @@ const loadNextPage = async () => {
           </div>
 
           <div class="dialog-actions">
-            <md-text-button @click="closeDialog" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">关闭</md-text-button>
-            <md-text-button @click="handleLast" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">上一张</md-text-button>
-            <md-text-button @click="handleNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">下一张</md-text-button>
-            <md-filled-button @click="handleSaveAndNext" :disabled="isSaving" style="padding-left: 15px; padding-right: 15px;">
+            <md-text-button
+              @click="closeDialog"
+              :disabled="isSaving"
+              style="padding-left: 15px; padding-right: 15px"
+              >关闭</md-text-button
+            >
+            <md-text-button
+              @click="handleLast"
+              :disabled="isSaving"
+              style="padding-left: 15px; padding-right: 15px"
+              >上一张</md-text-button
+            >
+            <md-text-button
+              @click="handleNext"
+              :disabled="isSaving"
+              style="padding-left: 15px; padding-right: 15px"
+              >下一张</md-text-button
+            >
+            <md-filled-button
+              @click="handleSaveAndNext"
+              :disabled="isSaving"
+              style="padding-left: 15px; padding-right: 15px"
+            >
               <span v-if="isSaving" class="loading-spinner"></span>
-              {{ isSaving ? '保存中...' : '保存并下一张' }}
+              {{ isSaving ? "保存中..." : "保存并下一张" }}
             </md-filled-button>
           </div>
         </div>
@@ -348,8 +385,12 @@ const loadNextPage = async () => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 动画样式 */

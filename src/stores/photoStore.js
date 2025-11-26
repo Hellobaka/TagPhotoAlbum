@@ -111,7 +111,7 @@ export const usePhotoStore = defineStore('photos', {
     // 未分类照片
     uncategorizedPhotos: (state) => {
       return state.photos.filter(photo =>
-        !photo.folder || photo.folder === '未分类' 
+        !photo.folder || photo.folder === '未分类'
       )
     }
   },
@@ -304,7 +304,7 @@ export const usePhotoStore = defineStore('photos', {
       if (filters) {
         this.currentFilters = { ...this.currentFilters, ...filters }
       }
-      
+
       return this._loadPaginatedData(
         photoApi.getPhotosPaginated.bind(photoApi),
         1,
@@ -407,7 +407,7 @@ export const usePhotoStore = defineStore('photos', {
           this.hasMore = true
           const idsToExclude = excludeIds !== null ? excludeIds : this.lastRecommendPhotoIds
           const response = await photoApi.getRecommendPhotos(idsToExclude)
-          
+
           this.recommendPhotos = response.data || []
           this.lastRecommendPhotoIds = this.recommendPhotos.map(photo => photo.id)
           this.hasMore = this.recommendPhotos.length >= 20
@@ -423,7 +423,7 @@ export const usePhotoStore = defineStore('photos', {
     async getUncategorizedPhotos() {
       this.uncategorizedCurrentPage = 1
       this.hasMore = true
-      
+
       return this._loadPaginatedData(
         photoApi.getUncategorizedPhotos.bind(photoApi),
         1,

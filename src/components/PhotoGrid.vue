@@ -2,7 +2,10 @@
   <div>
     <!-- 隐藏图片提示 -->
     <transition name="notice-fade">
-      <div v-if="hiddenPhotosCount > 0 && showHiddenNotice" class="hidden-photos-notice">
+      <div
+        v-if="hiddenPhotosCount > 0 && showHiddenNotice"
+        class="hidden-photos-notice"
+      >
         <md-icon>visibility_off</md-icon>
         <span>有 {{ hiddenPhotosCount }} 张图片因 Tag 过滤策略而被隐藏</span>
         <md-icon-button @click="closeHiddenNotice" class="close-button">
@@ -36,10 +39,17 @@
         :scroll-container="scrollContainer"
         v-slot="{ item: photo, index }"
       >
-        <div 
-          class="masonry-item" 
-          :class="{ 'photo-blurred': shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) }"
-          @click="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) ? null : openPhotoDetail(photo)"
+        <div
+          class="masonry-item"
+          :class="{
+            'photo-blurred':
+              shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id),
+          }"
+          @click="
+            shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)
+              ? null
+              : openPhotoDetail(photo)
+          "
         >
           <div class="image-wrapper">
             <img
@@ -68,8 +78,10 @@
             </div>
             <!-- 模糊遮罩层 -->
             <transition name="blur-fade">
-              <div 
-                v-if="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)"
+              <div
+                v-if="
+                  shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)
+                "
                 class="blur-mask"
                 @click.stop="removeBlur(photo.id)"
               >
@@ -128,7 +140,9 @@
         </div>
         <!-- 在MasonryWall内部放置哨兵元素 -->
         <div
-          v-if="index === visiblePhotos.length - 1 || visiblePhotos.length === 0"
+          v-if="
+            index === visiblePhotos.length - 1 || visiblePhotos.length === 0
+          "
           ref="sentinel"
           class="load-more-sentinel"
         ></div>
@@ -146,8 +160,15 @@
           v-for="(photo, index) in visiblePhotos"
           :key="photo.id"
           class="grid-item"
-          :class="{ 'photo-blurred': shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) }"
-          @click="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) ? null : openPhotoDetail(photo)"
+          :class="{
+            'photo-blurred':
+              shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id),
+          }"
+          @click="
+            shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)
+              ? null
+              : openPhotoDetail(photo)
+          "
         >
           <div class="image-wrapper">
             <img
@@ -175,8 +196,10 @@
             </div>
             <!-- 模糊遮罩层 -->
             <transition name="blur-fade">
-              <div 
-                v-if="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)"
+              <div
+                v-if="
+                  shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)
+                "
                 class="blur-mask"
                 @click.stop="removeBlur(photo.id)"
               >
@@ -224,7 +247,10 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-if="!isLoading && visiblePhotos.length === 0 && hiddenPhotosCount === 0" class="empty-state">
+    <div
+      v-if="!isLoading && visiblePhotos.length === 0 && hiddenPhotosCount === 0"
+      class="empty-state"
+    >
       <span class="material-symbols-outlined empty-icon">photo</span>
       <h3 class="md-typescale-headline-small">没有找到照片</h3>
       <p class="md-typescale-body-medium">尝试调整筛选条件或搜索关键词</p>
@@ -286,64 +312,64 @@ const scrollContainer = ref(null);
 const imageStatus = ref({}); // { [photo.id]: 'loading' | 'loaded' | 'error' }
 
 // Tag 过滤策略
-const tagFilterStrategies = ref([])
-const unblurredPhotoIds = ref(new Set()) // 已取消模糊的图片ID
-const showHiddenNotice = ref(true) // 控制隐藏提示的显示
+const tagFilterStrategies = ref([]);
+const unblurredPhotoIds = ref(new Set()); // 已取消模糊的图片ID
+const showHiddenNotice = ref(true); // 控制隐藏提示的显示
 
 // 加载 Tag 过滤策略
 const loadTagFilterStrategies = () => {
-  const saved = localStorage.getItem('tagFilterStrategies')
+  const saved = localStorage.getItem("tagFilterStrategies");
   if (saved) {
     try {
-      tagFilterStrategies.value = JSON.parse(saved)
+      tagFilterStrategies.value = JSON.parse(saved);
     } catch (e) {
-      console.error('Failed to parse tag filter strategies:', e)
-      tagFilterStrategies.value = []
+      console.error("Failed to parse tag filter strategies:", e);
+      tagFilterStrategies.value = [];
     }
   }
-}
+};
 
 // 判断图片是否应该被隐藏
 const shouldHidePhoto = (photo) => {
-  if (!photo.tags || !Array.isArray(photo.tags)) return false
-  return photo.tags.some(tag => {
-    const filter = tagFilterStrategies.value.find(f => f.tag === tag)
-    return filter && filter.strategy === 'hide'
-  })
-}
+  if (!photo.tags || !Array.isArray(photo.tags)) return false;
+  return photo.tags.some((tag) => {
+    const filter = tagFilterStrategies.value.find((f) => f.tag === tag);
+    return filter && filter.strategy === "hide";
+  });
+};
 
 // 判断图片是否应该被模糊
 const shouldBlurPhoto = (photo) => {
-  if (!photo.tags || !Array.isArray(photo.tags)) return false
-  return photo.tags.some(tag => {
-    const filter = tagFilterStrategies.value.find(f => f.tag === tag)
-    return filter && filter.strategy === 'blur'
-  })
-}
+  if (!photo.tags || !Array.isArray(photo.tags)) return false;
+  return photo.tags.some((tag) => {
+    const filter = tagFilterStrategies.value.find((f) => f.tag === tag);
+    return filter && filter.strategy === "blur";
+  });
+};
 
 // 可见的图片列表（过滤掉被隐藏的）
 const visiblePhotos = computed(() => {
-  return props.photos.filter(photo => !shouldHidePhoto(photo))
-})
+  return props.photos.filter((photo) => !shouldHidePhoto(photo));
+});
 
 // 被隐藏的图片数量
 const hiddenPhotosCount = computed(() => {
-  return props.photos.length - visiblePhotos.value.length
-})
+  return props.photos.length - visiblePhotos.value.length;
+});
 
 // 移除模糊效果
 const removeBlur = (photoId) => {
-  const hasBlur = unblurredPhotoIds.value.has(photoId)
-  unblurredPhotoIds.value.add(photoId)
-  return !hasBlur
-}
+  const hasBlur = unblurredPhotoIds.value.has(photoId);
+  unblurredPhotoIds.value.add(photoId);
+  return !hasBlur;
+};
 
 // 获取 Tag Chip 的 CSS 类
 const getTagChipClass = (tagName) => {
-  const filter = tagFilterStrategies.value.find(f => f.tag === tagName)
-  if (!filter) return ''
-  return 'tag-filter'
-}
+  const filter = tagFilterStrategies.value.find((f) => f.tag === tagName);
+  if (!filter) return "";
+  return "tag-filter";
+};
 
 // 监听 photos，初始化每张图片的加载状态
 watch(
@@ -559,26 +585,26 @@ const getImageUrl = (photo) => {
 
 // 关闭隐藏提示
 const closeHiddenNotice = () => {
-  showHiddenNotice.value = false
-}
+  showHiddenNotice.value = false;
+};
 
 // 组件挂载时加载过滤策略
 onMounted(() => {
-  loadTagFilterStrategies()
+  loadTagFilterStrategies();
   // 监听 localStorage 变化，及时更新策略
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'tagFilterStrategies') {
-      loadTagFilterStrategies()
+  window.addEventListener("storage", (e) => {
+    if (e.key === "tagFilterStrategies") {
+      loadTagFilterStrategies();
     }
-  })
-})
+  });
+});
 
 // 监听隐藏图片数量变化，自动显示提示
 watch(hiddenPhotosCount, (newCount) => {
   if (newCount > 0) {
-    showHiddenNotice.value = true
+    showHiddenNotice.value = true;
   }
-})
+});
 </script>
 
 <style scoped>
@@ -608,7 +634,8 @@ watch(hiddenPhotosCount, (newCount) => {
 /* 隐藏提示过渡动画 */
 .notice-fade-enter-active,
 .notice-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease, margin 0.3s ease;
+  transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease,
+    margin 0.3s ease;
 }
 
 .notice-fade-enter-from {

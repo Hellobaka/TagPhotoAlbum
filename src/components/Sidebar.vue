@@ -2,9 +2,15 @@
   <div class="sidebar" :class="{ 'sidebar-collapsed': isCollapsed }">
     <div class="sidebar-header">
       <md-icon-button @click="toggleSidebar" class="collapse-btn">
-        <span class="material-symbols-outlined">{{ isCollapsed ? 'chevron_right' : 'chevron_left' }}</span>
+        <span class="material-symbols-outlined">{{
+          isCollapsed ? "chevron_right" : "chevron_left"
+        }}</span>
       </md-icon-button>
-      <md-icon-button @click="handleLogout" class="logout-btn" v-if="!isCollapsed">
+      <md-icon-button
+        @click="handleLogout"
+        class="logout-btn"
+        v-if="!isCollapsed"
+      >
         <span class="material-symbols-outlined">logout</span>
       </md-icon-button>
     </div>
@@ -14,16 +20,13 @@
         v-for="tab in tabs"
         :key="tab.id"
         class="nav-tab"
-        :class="{ 'active': activeTab === tab.id }"
+        :class="{ active: activeTab === tab.id }"
         @click="setActiveTab(tab.id)"
       >
         <span class="material-symbols-outlined tab-icon">{{ tab.icon }}</span>
         <span class="tab-label" v-if="!isCollapsed">{{ tab.label }}</span>
       </div>
-      <div
-        class="nav-tab"
-        @click="handlePasskeyManagement"
-      >
+      <div class="nav-tab" @click="handlePasskeyManagement">
         <span class="material-symbols-outlined tab-icon">fingerprint</span>
         <span class="tab-label" v-if="!isCollapsed">管理通行密钥</span>
       </div>
@@ -94,193 +97,197 @@
       </div>
     </div>
   </div>
-
 </template>
 
 <script setup>
-import { usePhotoStore } from '@/stores/photoStore'
-import { useAuthStore } from '@/stores/authStore'
-import { useNotificationStore } from '@/stores/notificationStore'
-import { useRouter } from 'vue-router'
-import { onMounted, onUnmounted, watch, ref } from 'vue'
-import { photoApi } from '@/api/photoApi'
+import { usePhotoStore } from "@/stores/photoStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { useRouter } from "vue-router";
+import { onMounted, onUnmounted, watch, ref } from "vue";
+import { photoApi } from "@/api/photoApi";
 
 const props = defineProps({
   isCollapsed: {
     type: Boolean,
-    default: false
+    default: false,
   },
   activeTab: {
     type: String,
-    default: 'tags'
+    default: "tags",
   },
   selectedTags: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   selectedFolder: {
     type: String,
-    default: null
+    default: null,
   },
   selectedLocation: {
     type: String,
-    default: null
+    default: null,
   },
   selectedRatings: {
     type: Array,
-    default: () => []
-  }
-})
+    default: () => [],
+  },
+});
 
 const emit = defineEmits([
-  'toggle-sidebar',
-  'set-active-tab',
-  'toggle-tag',
-  'select-folder',
-  'select-location',
-  'toggle-rating',
-  'logout',
-  'open-passkey-management',
-  'open-tag-filter-dialog'
-])
+  "toggle-sidebar",
+  "set-active-tab",
+  "toggle-tag",
+  "select-folder",
+  "select-location",
+  "toggle-rating",
+  "logout",
+  "open-passkey-management",
+  "open-tag-filter-dialog",
+]);
 
 // Tag 过滤策略
-const tagFilterStrategies = ref([])
+const tagFilterStrategies = ref([]);
 
 // 加载 Tag 过滤策略
 const loadTagFilterStrategies = () => {
-  const saved = localStorage.getItem('tagFilterStrategies')
+  const saved = localStorage.getItem("tagFilterStrategies");
   if (saved) {
     try {
-      tagFilterStrategies.value = JSON.parse(saved)
+      tagFilterStrategies.value = JSON.parse(saved);
     } catch (e) {
-      console.error('Failed to parse tag filter strategies:', e)
-      tagFilterStrategies.value = []
+      console.error("Failed to parse tag filter strategies:", e);
+      tagFilterStrategies.value = [];
     }
   }
-}
+};
 
 // 获取 Tag 的 CSS 类
 const getTagClass = (tagName) => {
-  const filter = tagFilterStrategies.value.find(f => f.tag === tagName)
-  if (!filter) return ''
-  return 'tag-filter'
-}
+  const filter = tagFilterStrategies.value.find((f) => f.tag === tagName);
+  if (!filter) return "";
+  return "tag-filter";
+};
 
 // 打开 Tag 过滤对话框
 const openTagFilterDialog = () => {
-  emit('open-tag-filter-dialog')
-}
+  emit("open-tag-filter-dialog");
+};
 
 // 标签页配置
 const tabs = [
-  { id: 'recommend', label: '推荐', icon: 'recommend' },
-  { id: 'tags', label: '标签', icon: 'local_offer' },
-  { id: 'folders', label: '文件夹', icon: 'folder' },
-  { id: 'locations', label: '地点', icon: 'location_on' },
-  { id: 'ratings', label: '评分', icon: 'star' },
-  { id: 'uncategorized', label: '未分类', icon: 'folder_open' },
-]
+  { id: "recommend", label: "推荐", icon: "recommend" },
+  { id: "tags", label: "标签", icon: "local_offer" },
+  { id: "folders", label: "文件夹", icon: "folder" },
+  { id: "locations", label: "地点", icon: "location_on" },
+  { id: "ratings", label: "评分", icon: "star" },
+  { id: "uncategorized", label: "未分类", icon: "folder_open" },
+];
 
 // 使用 Pinia store
-const photoStore = usePhotoStore()
-const authStore = useAuthStore()
-const router = useRouter()
+const photoStore = usePhotoStore();
+const authStore = useAuthStore();
+const router = useRouter();
 
 // 监听标签页变化，按需加载筛选数据
-watch(() => props.activeTab, async (newTab) => {
-  if (!props.isCollapsed) {
-    await loadFilterData(newTab)
+watch(
+  () => props.activeTab,
+  async (newTab) => {
+    if (!props.isCollapsed) {
+      await loadFilterData(newTab);
+    }
   }
-})
+);
 
 // 监听侧边栏展开状态，展开时加载筛选数据
-watch(() => props.isCollapsed, async (isCollapsed) => {
-  if (!isCollapsed) {
-    await loadFilterData(props.activeTab)
+watch(
+  () => props.isCollapsed,
+  async (isCollapsed) => {
+    if (!isCollapsed) {
+      await loadFilterData(props.activeTab);
+    }
   }
-})
+);
 
 // 按需加载筛选数据
 const loadFilterData = async (tabId) => {
   try {
     switch (tabId) {
-      case 'tags':
+      case "tags":
         // 标签数据会在应用启动时自动加载，这里不需要额外操作
-        break
-      case 'folders':
+        break;
+      case "folders":
         if (photoStore.folders.length === 0) {
-          await photoStore.getFoldersData()
+          await photoStore.getFoldersData();
         }
-        break
-      case 'locations':
+        break;
+      case "locations":
         if (photoStore.locations.length === 0) {
-          await photoStore.getLocationsData()
+          await photoStore.getLocationsData();
         }
-        break
+        break;
     }
   } catch (error) {
-    console.error(`Failed to load filter data for ${tabId}:`, error)
+    console.error(`Failed to load filter data for ${tabId}:`, error);
   }
-}
+};
 
 // 通行密钥管理
 const handlePasskeyManagement = async () => {
-  emit('open-passkey-management')
-}
+  emit("open-passkey-management");
+};
 
 onMounted(() => {
   // 如果侧边栏展开，加载当前标签页的筛选数据
   if (!props.isCollapsed) {
-    loadFilterData(props.activeTab)
+    loadFilterData(props.activeTab);
   }
   // 加载 Tag 过滤策略
-  loadTagFilterStrategies()
-  
+  loadTagFilterStrategies();
+
   // 监听 localStorage 变化
-  window.addEventListener('storage', handleStorageChange)
-})
+  window.addEventListener("storage", handleStorageChange);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('storage', handleStorageChange)
-})
+  window.removeEventListener("storage", handleStorageChange);
+});
 
 const handleStorageChange = (e) => {
-  if (e.key === 'tagFilterStrategies') {
-    loadTagFilterStrategies()
+  if (e.key === "tagFilterStrategies") {
+    loadTagFilterStrategies();
   }
-}
+};
 
 // 方法
 const toggleSidebar = () => {
-  emit('toggle-sidebar')
-}
+  emit("toggle-sidebar");
+};
 
 const setActiveTab = (tabId) => {
-  emit('set-active-tab', tabId)
-}
+  emit("set-active-tab", tabId);
+};
 
 const toggleTag = (tag) => {
-  emit('toggle-tag', tag)
-}
+  emit("toggle-tag", tag);
+};
 
 const selectFolder = (folder) => {
-  emit('select-folder', folder)
-}
+  emit("select-folder", folder);
+};
 
 const selectLocation = (location) => {
-  emit('select-location', location)
-}
+  emit("select-location", location);
+};
 
 const toggleRating = (rating) => {
-  emit('toggle-rating', rating)
-}
+  emit("toggle-rating", rating);
+};
 
 const handleLogout = () => {
-  authStore.logout()
-  router.push('/login')
-}
-
+  authStore.logout();
+  router.push("/login");
+};
 </script>
 
 <style scoped>

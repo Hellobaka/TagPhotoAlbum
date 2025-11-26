@@ -8,7 +8,7 @@
     <!-- 全局拖拽上传区域 -->
     <UploadZone
       v-if="showUploadZone"
-      :class="['global-upload-zone', { 'closing': isClosingUploadZone }]"
+      :class="['global-upload-zone', { closing: isClosingUploadZone }]"
       @close="closeUploadZone"
       @upload-complete="closeUploadZone"
     />
@@ -42,7 +42,10 @@
       <!-- 主内容区 -->
       <div class="main-content" @scroll="handleScroll">
         <!-- Header 和 筛选条一起的容器 -->
-        <div class="header-filter-container" :class="{ 'header-hidden': isFilterHidden }">
+        <div
+          class="header-filter-container"
+          :class="{ 'header-hidden': isFilterHidden }"
+        >
           <!-- Header 组件 -->
           <HomeHeader
             :title="getActiveTabLabel"
@@ -134,33 +137,36 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { usePhotoStore } from '@/stores/photoStore'
-import { useAuthStore } from '@/stores/authStore'
-import { useNotificationStore } from '@/stores/notificationStore'
-import Sidebar from '@/components/Sidebar.vue'
-import HomeHeader from '@/components/HomeHeader.vue'
-import FilterStatus from '@/components/FilterStatus.vue'
-import CategorizeSection from '@/components/CategorizeSection.vue'
-import PhotoGrid from '@/components/PhotoGrid.vue'
-import PhotoDialog from '@/components/PhotoDialog.vue'
-import CategorizeDialog from '@/components/CategorizeDialog.vue'
-import UploadZone from '@/components/UploadZone.vue'
-import PasskeyManagementDialog from '@/components/PasskeyManagementDialog.vue'
-import TagFilterDialog from '@/components/TagFilterDialog.vue'
+import { ref, computed, onMounted, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { usePhotoStore } from "@/stores/photoStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import Sidebar from "@/components/Sidebar.vue";
+import HomeHeader from "@/components/HomeHeader.vue";
+import FilterStatus from "@/components/FilterStatus.vue";
+import CategorizeSection from "@/components/CategorizeSection.vue";
+import PhotoGrid from "@/components/PhotoGrid.vue";
+import PhotoDialog from "@/components/PhotoDialog.vue";
+import CategorizeDialog from "@/components/CategorizeDialog.vue";
+import UploadZone from "@/components/UploadZone.vue";
+import PasskeyManagementDialog from "@/components/PasskeyManagementDialog.vue";
+import TagFilterDialog from "@/components/TagFilterDialog.vue";
 
 // 使用 composables
-import { usePhotoFilters } from '@/utils/usePhotoFilters'
-import { useUploadZone } from '@/utils/useUploadZone'
-import { useScrollManagement, useMobileDetection } from '@/utils/useScrollManagement'
-import { usePhotoCategorization } from '@/utils/usePhotoCategorization'
+import { usePhotoFilters } from "@/utils/usePhotoFilters";
+import { useUploadZone } from "@/utils/useUploadZone";
+import {
+  useScrollManagement,
+  useMobileDetection,
+} from "@/utils/useScrollManagement";
+import { usePhotoCategorization } from "@/utils/usePhotoCategorization";
 
 // Stores
-const router = useRouter()
-const route = useRoute()
-const photoStore = usePhotoStore()
-const notificationStore = useNotificationStore()
+const router = useRouter();
+const route = useRoute();
+const photoStore = usePhotoStore();
+const notificationStore = useNotificationStore();
 
 // 使用组合函数
 const {
@@ -179,8 +185,8 @@ const {
   clearAllFilters,
   handleSortChange,
   applyFilters,
-  resetFilters
-} = usePhotoFilters()
+  resetFilters,
+} = usePhotoFilters();
 
 const {
   showUploadZone,
@@ -188,301 +194,308 @@ const {
   handleGlobalDragOver,
   handleGlobalDragLeave,
   handleGlobalDrop,
-  closeUploadZone
-} = useUploadZone()
+  closeUploadZone,
+} = useUploadZone();
 
-const { isFilterHidden, handleScroll } = useScrollManagement()
-const { isMobile } = useMobileDetection()
+const { isFilterHidden, handleScroll } = useScrollManagement();
+const { isMobile } = useMobileDetection();
 
 const {
   isCategorizing,
   startCategorization: startCategorizationBase,
   stopCategorization,
   handleSaveAndNext,
-  handleNext
-} = usePhotoCategorization()
+  handleNext,
+} = usePhotoCategorization();
 
 // 本地状态
-const isCollapsed = ref(false)
-const activeTab = ref('recommend')
-const selectedPhoto = ref(null)
-const editablePhoto = ref({})
-const newTag = ref('')
-const photoGridRef = ref(null)
-const showPasskeyManagementDialog = ref(false)
-const showTagFilterDialog = ref(false)
-const currentLayout = ref('masonry')
+const isCollapsed = ref(false);
+const activeTab = ref("recommend");
+const selectedPhoto = ref(null);
+const editablePhoto = ref({});
+const newTag = ref("");
+const photoGridRef = ref(null);
+const showPasskeyManagementDialog = ref(false);
+const showTagFilterDialog = ref(false);
+const currentLayout = ref("masonry");
 
 // 标签页配置
 const tabs = [
-  { id: 'tags', label: '标签', icon: 'local_offer' },
-  { id: 'folders', label: '文件夹', icon: 'folder' },
-  { id: 'locations', label: '地点', icon: 'location_on' },
-  { id: 'ratings', label: '评分', icon: 'star' },
-  { id: 'recommend', label: '推荐', icon: 'recommend' },
-  { id: 'uncategorized', label: '未分类', icon: 'folder_open' }
-]
+  { id: "tags", label: "标签", icon: "local_offer" },
+  { id: "folders", label: "文件夹", icon: "folder" },
+  { id: "locations", label: "地点", icon: "location_on" },
+  { id: "ratings", label: "评分", icon: "star" },
+  { id: "recommend", label: "推荐", icon: "recommend" },
+  { id: "uncategorized", label: "未分类", icon: "folder_open" },
+];
 
 // 计算属性
 const getActiveTabLabel = computed(() => {
-  const tab = tabs.find(t => t.id === activeTab.value)
-  return tab ? tab.label : ''
-})
+  const tab = tabs.find((t) => t.id === activeTab.value);
+  return tab ? tab.label : "";
+});
 
 const isLoading = computed(() => {
-  if (activeTab.value === 'recommend') {
-    return photoStore.getLoadingState('recommend')
+  if (activeTab.value === "recommend") {
+    return photoStore.getLoadingState("recommend");
   }
-  return photoStore.getLoadingState('photos')
-})
+  return photoStore.getLoadingState("photos");
+});
 
 const loadingType = computed(() => {
-  if (activeTab.value === 'recommend') {
-    return 'recommend'
+  if (activeTab.value === "recommend") {
+    return "recommend";
   }
-  return 'photos'
-})
+  return "photos";
+});
 
 const filteredPhotos = computed(() => {
-  if (activeTab.value === 'recommend') {
-    return photoStore.recommendPhotos
+  if (activeTab.value === "recommend") {
+    return photoStore.recommendPhotos;
   }
-  if (activeTab.value === 'uncategorized') {
-    return photoStore.uncategorizedPhotos
+  if (activeTab.value === "uncategorized") {
+    return photoStore.uncategorizedPhotos;
   }
-  return photoStore.photos
-})
+  return photoStore.photos;
+});
 
 // 核心方法
 const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value
-  saveConfigToStorage()
-}
+  isCollapsed.value = !isCollapsed.value;
+  saveConfigToStorage();
+};
 
 const setActiveTab = async (tabId) => {
-  activeTab.value = tabId
-  photoStore.setActiveTab(tabId)
+  activeTab.value = tabId;
+  photoStore.setActiveTab(tabId);
 
   // 切换标签页时重置筛选
-  resetFilters()
+  resetFilters();
 
   // 更新路由URL
-  if (tabId === 'recommend') {
-    router.replace({ name: 'Home' })
+  if (tabId === "recommend") {
+    router.replace({ name: "Home" });
   } else {
-    router.replace({ name: 'HomeTab', params: { tabId } })
+    router.replace({ name: "HomeTab", params: { tabId } });
   }
 
   try {
     switch (tabId) {
-      case 'recommend':
-        await photoStore.getRecommendPhotos([])
-        break
-      case 'uncategorized':
-        await photoStore.getUncategorizedPhotos()
-        break
+      case "recommend":
+        await photoStore.getRecommendPhotos([]);
+        break;
+      case "uncategorized":
+        await photoStore.getUncategorizedPhotos();
+        break;
       default:
-        await photoStore.loadFirstPage()
-        break
+        await photoStore.loadFirstPage();
+        break;
     }
   } catch (error) {
-    console.error(`Failed to load data for tab ${tabId}:`, error)
+    console.error(`Failed to load data for tab ${tabId}:`, error);
   }
 
   setTimeout(() => {
     if (photoGridRef.value) {
-      console.log('🔄 Reconfiguring PhotoGrid observer after tab switch')
-      photoGridRef.value.reconfigureObserver()
+      console.log("🔄 Reconfiguring PhotoGrid observer after tab switch");
+      photoGridRef.value.reconfigureObserver();
     }
-  }, 300)
-}
+  }, 300);
+};
 
 const handleRefresh = async () => {
   try {
-    let photoCount = 0
+    let photoCount = 0;
 
     switch (activeTab.value) {
-      case 'recommend':
-        await photoStore.getRecommendPhotos([])
-        photoCount = photoStore.recommendPhotos.length
-        break
-      case 'uncategorized':
-        await photoStore.getUncategorizedPhotos()
-        photoCount = photoStore.uncategorizedPhotos.length
-        break
+      case "recommend":
+        await photoStore.getRecommendPhotos([]);
+        photoCount = photoStore.recommendPhotos.length;
+        break;
+      case "uncategorized":
+        await photoStore.getUncategorizedPhotos();
+        photoCount = photoStore.uncategorizedPhotos.length;
+        break;
       default:
-        await photoStore.loadFirstPage()
-        photoCount = photoStore.photos.length
-        break
+        await photoStore.loadFirstPage();
+        photoCount = photoStore.photos.length;
+        break;
     }
 
-    notificationStore.showSuccess(`已刷新数据，获得 ${photoCount} 张图片`)
+    notificationStore.showSuccess(`已刷新数据，获得 ${photoCount} 张图片`);
   } catch (error) {
-    console.error('Failed to refresh data:', error)
-    notificationStore.showError('刷新数据失败')
+    console.error("Failed to refresh data:", error);
+    notificationStore.showError("刷新数据失败");
   }
-}
+};
 
 // 包装分类方法以传递filteredPhotos
 const startCategorization = (selectedPhoto = null) => {
-  startCategorizationBase(selectedPhoto, filteredPhotos.value)
-}
+  startCategorizationBase(selectedPhoto, filteredPhotos.value);
+};
 
 const openPhotoDetail = (photo) => {
-  if (activeTab.value === 'uncategorized') {
-    startCategorization(photo)
+  if (activeTab.value === "uncategorized") {
+    startCategorization(photo);
   } else {
-    selectedPhoto.value = photo
-    editablePhoto.value = { ...photo }
-    newTag.value = ''
+    selectedPhoto.value = photo;
+    editablePhoto.value = { ...photo };
+    newTag.value = "";
   }
-}
+};
 
 const closePhotoDetail = () => {
-  selectedPhoto.value = null
-  editablePhoto.value = {}
-  newTag.value = ''
-}
+  selectedPhoto.value = null;
+  editablePhoto.value = {};
+  newTag.value = "";
+};
 
 const savePhotoInfo = () => {
-  closePhotoDetail()
-}
+  closePhotoDetail();
+};
 
 const handleTagClickFromGrid = async (tag) => {
-  const index = selectedTags.value.indexOf(tag)
+  const index = selectedTags.value.indexOf(tag);
   if (index === -1) {
-    selectedTags.value.push(tag)
-    await applyFilters()
+    selectedTags.value.push(tag);
+    await applyFilters();
   }
-}
+};
 
 const handlePhotoGridReady = () => {
-  console.log('✅ PhotoGrid is ready')
-}
+  console.log("✅ PhotoGrid is ready");
+};
 
 const openPasskeyManagementDialog = () => {
-  showPasskeyManagementDialog.value = true
-}
+  showPasskeyManagementDialog.value = true;
+};
 
 const closePasskeyManagementDialog = () => {
-  showPasskeyManagementDialog.value = false
-}
+  showPasskeyManagementDialog.value = false;
+};
 
 const openTagFilterDialog = () => {
-  showTagFilterDialog.value = true
-}
+  showTagFilterDialog.value = true;
+};
 
 const closeTagFilterDialog = () => {
-  showTagFilterDialog.value = false
-}
+  showTagFilterDialog.value = false;
+};
 
 const handleTagFilterUpdate = (filters) => {
   if (photoGridRef.value) {
     photoGridRef.value.refreshFilters();
-    notificationStore.showSuccess('过滤策略已更新');
+    notificationStore.showSuccess("过滤策略已更新");
   }
-}
+};
 
 // 本地存储配置
-const STORAGE_KEY = 'tag-photo-album-config'
+const STORAGE_KEY = "tag-photo-album-config";
 
 const loadConfigFromStorage = () => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const config = JSON.parse(stored)
-      console.log('📂 Loaded config from localStorage:', config)
+      const config = JSON.parse(stored);
+      console.log("📂 Loaded config from localStorage:", config);
 
       if (config.currentLayout) {
-        currentLayout.value = config.currentLayout
+        currentLayout.value = config.currentLayout;
       }
 
       if (route.params.tabId) {
-        activeTab.value = route.params.tabId
+        activeTab.value = route.params.tabId;
       }
 
       if (config.isCollapsed !== undefined) {
-        isCollapsed.value = config.isCollapsed
+        isCollapsed.value = config.isCollapsed;
       }
 
-      return true
+      return true;
     }
   } catch (error) {
-    console.error('Failed to load config from localStorage:', error)
+    console.error("Failed to load config from localStorage:", error);
   }
-  return false
-}
+  return false;
+};
 
 const saveConfigToStorage = () => {
   const config = {
     currentLayout: currentLayout.value,
-    isCollapsed: isCollapsed.value
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
-  console.log('💾 Saved config to localStorage:', config)
-}
+    isCollapsed: isCollapsed.value,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  console.log("💾 Saved config to localStorage:", config);
+};
 
 const handleLayoutChange = (layout) => {
-  currentLayout.value = layout
-  saveConfigToStorage()
-}
+  currentLayout.value = layout;
+  saveConfigToStorage();
+};
 
 const handleLoadMoreUncategorized = async () => {
   try {
-    await photoStore.loadMoreUncategorizedPhotos()
+    await photoStore.loadMoreUncategorizedPhotos();
   } catch (error) {
-    console.error('Failed to load more uncategorized photos:', error)
-    notificationStore.showError('加载更多照片失败')
+    console.error("Failed to load more uncategorized photos:", error);
+    notificationStore.showError("加载更多照片失败");
   }
-}
+};
 
 const handleLoadMore = async () => {
-  if (activeTab.value === 'recommend') {
-    await photoStore.getRecommendPhotos()
-    return
+  if (activeTab.value === "recommend") {
+    await photoStore.getRecommendPhotos();
+    return;
   }
 
-  if (activeTab.value === 'uncategorized') {
-    await handleLoadMoreUncategorized()
-    return
+  if (activeTab.value === "uncategorized") {
+    await handleLoadMoreUncategorized();
+    return;
   }
 
   try {
-    await photoStore.loadMorePhotos()
+    await photoStore.loadMorePhotos();
   } catch (error) {
-    console.error('Failed to load more photos:', error)
-    notificationStore.showError('加载更多照片失败')
+    console.error("Failed to load more photos:", error);
+    notificationStore.showError("加载更多照片失败");
   }
-}
+};
 
 // 监听路由变化
-watch(() => route.params.tabId, async (newTabId) => {
-  console.log('🔄 Route tabId changed:', newTabId)
+watch(
+  () => route.params.tabId,
+  async (newTabId) => {
+    console.log("🔄 Route tabId changed:", newTabId);
 
-  if (!newTabId) {
-    activeTab.value = 'recommend'
-    await setActiveTab(activeTab.value)
-  } else {
-    if (tabs.some(tab => tab.id === newTabId) && activeTab.value !== newTabId) {
-      activeTab.value = newTabId
-      await setActiveTab(newTabId)
+    if (!newTabId) {
+      activeTab.value = "recommend";
+      await setActiveTab(activeTab.value);
+    } else {
+      if (
+        tabs.some((tab) => tab.id === newTabId) &&
+        activeTab.value !== newTabId
+      ) {
+        activeTab.value = newTabId;
+        await setActiveTab(newTabId);
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
-  const configLoaded = loadConfigFromStorage()
+  const configLoaded = loadConfigFromStorage();
 
   try {
     if (!configLoaded) {
-      await photoStore.getTagsData()
-      await photoStore.getFoldersData()
-      await photoStore.getLocationsData()
+      await photoStore.getTagsData();
+      await photoStore.getFoldersData();
+      await photoStore.getLocationsData();
     }
   } catch (error) {
-    console.error('Failed to load initial filter data:', error)
+    console.error("Failed to load initial filter data:", error);
   }
-})
+});
 </script>
 
 <style scoped>
@@ -557,7 +570,7 @@ onMounted(async () => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
   color: white;
   padding: 16px;
   opacity: 0;
@@ -578,8 +591,6 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 4px;
 }
-
-
 
 /* 全局上传区域样式 */
 .global-upload-zone {
@@ -681,16 +692,16 @@ onMounted(async () => {
   .home {
     --header-height: 222px; /* 移动端 header 高度优化 */
   }
-  
+
   .masonry-grid {
     column-count: 2;
   }
-  
+
   .sort-dropdown {
     min-width: auto;
     width: 100%;
   }
-  
+
   .global-upload-zone {
     padding: 20px;
   }
