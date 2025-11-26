@@ -423,13 +423,11 @@ const loadNextPage = async () => {
 }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
+@media (max-width: 768px) {
   .dialog-content {
     flex-direction: column;
   }
-}
 
-@media (max-width: 768px) {
   .dialog-overlay {
     padding: 10px;
   }
