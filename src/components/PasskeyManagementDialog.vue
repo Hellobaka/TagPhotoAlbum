@@ -85,6 +85,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { photoApi } from '@/api/photoApi'
 import PasskeyNameDialog from '@/components/PasskeyNameDialog.vue'
+import { useDialogBackHandler } from '@/utils/useDialogBackHandler'
 
 const props = defineProps({
   show: {
@@ -347,8 +348,12 @@ const arrayBufferToBase64Url = (arrayBuffer) => {
 };
 
 // 方法
+const emitCloseOnly = () => emit('close')
+const { beforeManualClose } = useDialogBackHandler(() => props.show, emitCloseOnly, showPasskeyNameDialog)
+
 const closeDialog = () => {
-  emit('close')
+  beforeManualClose()
+  emitCloseOnly()
 }
 </script>
 

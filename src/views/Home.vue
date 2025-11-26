@@ -275,11 +275,19 @@ const setActiveTab = async (tabId) => {
   // 切换标签页时重置筛选
   resetFilters();
 
-  // 更新路由URL
-  if (tabId === "recommend") {
-    router.replace({ name: "Home" });
-  } else {
-    router.replace({ name: "HomeTab", params: { tabId } });
+  // 更新路由URL并记录历史
+  try {
+    if (tabId === "recommend") {
+      if (route.name !== "Home") {
+        await router.push({ name: "Home" });
+      }
+    } else {
+      if (route.name !== "HomeTab" || route.params.tabId !== tabId) {
+        await router.push({ name: "HomeTab", params: { tabId } });
+      }
+    }
+  } catch (e) {
+    // 忽略同一路由的 NavigationDuplicated 错误
   }
 
   try {

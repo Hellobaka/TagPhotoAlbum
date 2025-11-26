@@ -77,6 +77,7 @@
 import { ref, computed, watch } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
 import { useNotificationStore } from '@/stores/notificationStore'
+import { useDialogBackHandler } from '@/utils/useDialogBackHandler'
 
 const props = defineProps({
   show: {
@@ -167,8 +168,12 @@ const removeFilter = (tag) => {
   notificationStore.showSuccess(`已移除 ${tag} 的过滤策略`)
 }
 
+const emitCloseOnly = () => emit('close')
+const { beforeManualClose } = useDialogBackHandler(() => props.show, emitCloseOnly)
+
 const handleClose = () => {
-  emit('close')
+  beforeManualClose()
+  emitCloseOnly()
 }
 
 // 监听对话框打开，加载数据

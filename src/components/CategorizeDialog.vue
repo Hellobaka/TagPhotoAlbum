@@ -3,6 +3,7 @@ import { ref, watch, computed, nextTick, onMounted, onUnmounted } from "vue";
 import { usePhotoStore } from "@/stores/photoStore";
 import PhotoEditor from "@/components/PhotoEditor.vue";
 import { useNotificationStore } from "../stores/notificationStore";
+import { useDialogBackHandler } from "@/utils/useDialogBackHandler";
 
 const props = defineProps({
   isOpen: {
@@ -88,8 +89,12 @@ watch(
 );
 
 // 方法
+const emitCloseOnly = () => emit("close");
+const { beforeManualClose } = useDialogBackHandler(() => props.isOpen, emitCloseOnly);
+
 const closeDialog = () => {
-  emit("close");
+  beforeManualClose();
+  emitCloseOnly();
 };
 
 const addTag = (tagToAdd = null) => {

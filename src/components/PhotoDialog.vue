@@ -101,6 +101,7 @@ import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import { usePhotoStore } from "@/stores/photoStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import PhotoEditor from "@/components/PhotoEditor.vue";
+import { useDialogBackHandler } from "@/utils/useDialogBackHandler";
 
 const props = defineProps({
   selectedPhoto: {
@@ -117,6 +118,8 @@ const newTag = ref("");
 const isSaving = ref(false);
 const tagsToRemove = ref([]);
 const showUnsavedTagDialog = ref(false);
+
+// 物理返回/浏览器返回拦截（需在 watch 之前定义，避免 TDZ）
 
 // 使用 Pinia store
 const photoStore = usePhotoStore();
@@ -145,10 +148,16 @@ watch(
 );
 
 // 方法
+const emitCloseOnly = () => {
+  emit("close-photo-detail");
+};
+const { beforeManualClose } = useDialogBackHandler(() => !!props.selectedPhoto, emitCloseOnly, showUnsavedTagDialog);
+
 const closePhotoDetail = () => {
   // 重置待删除标签列表
   tagsToRemove.value = [];
-  emit("close-photo-detail");
+  beforeManualClose();
+  emitCloseOnly();
 };
 
 const addTag = (tagToAdd = null) => {
@@ -264,6 +273,9 @@ const saveWithoutUnsavedTag = () => {
 const cancelUnsavedTag = () => {
   showUnsavedTagDialog.value = false;
 };
+
+
+
 </script>
 
 <style scoped>
