@@ -83,38 +83,29 @@ export const usePhotoStore = defineStore('photos', {
     },
 
     filteredPhotos: (state) => {
-      switch (state.activeTab) {
-        case 'tags':
-          return state.photos
-        case 'folders':
-          return state.photos
-        case 'locations':
-          return state.photos
-        case 'recommend':
-          return state.recommendPhotos
-        default:
-          return state.photos
-      }
+      return state.activeTab === 'recommend' ? state.recommendPhotos : state.photos
     },
 
-    allTags: (state) => {
-      const allTags = new Set()
+    // 通用的提取唯一值方法
+    _extractUniqueValues: (state) => (fieldName) => {
+      const values = new Set()
       state.photos.forEach(photo => {
-        photo.tags.forEach(tag => allTags.add(tag))
+        const value = photo[fieldName]
+        if (value) values.add(value)
       })
-      return Array.from(allTags)
+      return Array.from(values)
     },
 
-    allFolders: (state) => {
-      const folders = new Set()
-      state.photos.forEach(photo => folders.add(photo.folder))
-      return Array.from(folders)
+    allTags(state) {
+      return this._extractUniqueValues('tags').flatMap(tags => tags || [])
     },
 
-    allLocations: (state) => {
-      const locations = new Set()
-      state.photos.forEach(photo => locations.add(photo.location))
-      return Array.from(locations)
+    allFolders() {
+      return this._extractUniqueValues('folder')
+    },
+
+    allLocations() {
+      return this._extractUniqueValues('location')
     },
 
     // 未分类照片
@@ -126,13 +117,65 @@ export const usePhotoStore = defineStore('photos', {
   },
 
   actions: {
+    // 通用的API调用包装器 - 减少重复的try-catch-finally代码
+    async _apiCall(apiMethod, loadingType, errorMessage, ...args) {
+      try {
+        if (loadingType) this.setLoadingState(loadingType, true)
+        this.error = null
+        return await apiMethod(...args)
+      } catch (error) {
+        this.error = error.message
+        console.error(errorMessage, error)
+        const notificationStore = useNotificationStore()
+        notificationStore.showError(error.message || errorMessage)
+        throw error
+      } finally {
+        if (loadingType) this.setLoadingState(loadingType, false)
+      }
+    },
+
+    // 通用的分页加载方法
+    async _loadPaginatedData(apiMethod, pageNumber, pageSize, options = {}) {
+      const {
+        loadingType = 'photos',
+        storeKey = 'photos',
+        pageKey = 'currentPage',
+        filters = this.currentFilters
+      } = options
+
+      try {
+        this.setLoadingState(loadingType, true)
+        const response = await apiMethod(pageNumber, pageSize, filters)
+        const newPhotos = response.data || []
+
+        if (pageNumber === 1) {
+          this[storeKey] = newPhotos
+          this[pageKey] = 1
+          this.hasMore = newPhotos.length >= pageSize
+        } else {
+          this[storeKey] = [...this[storeKey], ...newPhotos]
+          this[pageKey] = pageNumber
+          this.hasMore = newPhotos.length >= pageSize
+        }
+
+        // 存储总数（如果有）
+        if (response.pagination?.total !== undefined) {
+          this.totalUncategorizedCount = response.pagination.total
+        }
+
+        return newPhotos
+      } catch (error) {
+        this.error = error.message
+        console.error('Failed to load paginated data:', error)
+        throw error
+      } finally {
+        this.setLoadingState(loadingType, false)
+      }
+    },
+
     // 初始化标签数据（在 PhotoGrid 组件加载时调用）
     async initTagsData() {
-      // 如果已经请求过，不再重复请求
-      if (this.tagsData.hasRequested) {
-        return
-      }
-
+      if (this.tagsData.hasRequested) return
       await this.getTagsData()
     },
 
@@ -163,34 +206,34 @@ export const usePhotoStore = defineStore('photos', {
       return this.loadingStates[type] || false
     },
 
-    async updatePhoto(updatedPhoto) {
-      try {
-        this.isLoading = true
-        const response = await photoApi.updatePhoto(updatedPhoto.id, updatedPhoto)
-        if (response.success) {
-          let index = this.photos.findIndex(photo => photo.id === updatedPhoto.id)
-          if (index !== -1) {
-            // 触发响应式更新
-            this.photos[index] = updatedPhoto
-          }
-          index = this.recommendPhotos.findIndex(photo => photo.id === updatedPhoto.id)
-          if (index !== -1) {
-            // 触发响应式更新
-            this.recommendPhotos[index] = updatedPhoto
-          }
+    // 通用的照片更新方法 - 在多个数组中查找并更新
+    _updatePhotoInArrays(updatedPhoto) {
+      const arrays = [
+        { key: 'photos', array: this.photos },
+        { key: 'recommendPhotos', array: this.recommendPhotos }
+      ]
 
-          // 更新本地标签数据，避免重复向服务器请求
-          this.updateLocalTagsData(updatedPhoto)
+      arrays.forEach(({ array }) => {
+        const index = array.findIndex(photo => photo.id === updatedPhoto.id)
+        if (index !== -1) {
+          array[index] = updatedPhoto
         }
-        return response
-      } catch (error) {
-        this.error = error.message
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '更新照片失败')
-        throw error
-      } finally {
-        this.isLoading = false
-      }
+      })
+    },
+
+    async updatePhoto(updatedPhoto) {
+      return this._apiCall(
+        async () => {
+          const response = await photoApi.updatePhoto(updatedPhoto.id, updatedPhoto)
+          if (response.success) {
+            this._updatePhotoInArrays(updatedPhoto)
+            this.updateLocalTagsData(updatedPhoto)
+          }
+          return response
+        },
+        null,
+        '更新照片失败'
+      )
     },
 
     // 更新本地标签数据
@@ -256,35 +299,18 @@ export const usePhotoStore = defineStore('photos', {
 
     // 加载第一页数据 - 用于标签、文件夹、地点页面的首次加载和刷新
     async loadFirstPage(filters = {}) {
-      try {
-        this.isLoading = true
-        this.error = null
-        this.currentPage = 1
-        this.hasMore = true
-
-        // 更新筛选状态
-        if (filters) {
-          this.currentFilters = { ...this.currentFilters, ...filters }
-        }
-
-        // 设置照片加载状态
-        this.setLoadingState('photos', true)
-
-        // 从 API 获取照片数据（第一页），传递筛选参数
-        const photosResponse = await photoApi.getPhotosPaginated(1, 20, this.currentFilters)
-        this.photos = photosResponse.data || []
-        this.setLoadingState('photos', false)
-
-      } catch (error) {
-        this.error = error.message
-        console.error('Failed to load first page:', error)
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '加载数据失败')
-        throw error
-      } finally {
-        this.isLoading = false
-        this.setLoadingState('photos', false)
+      this.currentPage = 1
+      this.hasMore = true
+      if (filters) {
+        this.currentFilters = { ...this.currentFilters, ...filters }
       }
+      
+      return this._loadPaginatedData(
+        photoApi.getPhotosPaginated.bind(photoApi),
+        1,
+        20,
+        { loadingType: 'photos', storeKey: 'photos', pageKey: 'currentPage' }
+      )
     },
 
     // 加载更多照片
@@ -294,28 +320,13 @@ export const usePhotoStore = defineStore('photos', {
       try {
         this.isLoadMore = true
         const nextPage = this.currentPage + 1
-
-        // 使用当前筛选参数加载下一页
-        const response = await photoApi.getPhotosPaginated(nextPage, 20, this.currentFilters)
-        const newPhotos = response.data || []
-
-        if (newPhotos.length > 0) {
-          this.photos = [...this.photos, ...newPhotos]
-          this.currentPage = nextPage
-
-          // 如果返回的照片数量小于请求的数量，说明没有更多数据了
-          if (newPhotos.length < 20) {
-            this.hasMore = false
-          }
-        } else {
-          this.hasMore = false
-        }
-
+        const newPhotos = await this._loadPaginatedData(
+          photoApi.getPhotosPaginated.bind(photoApi),
+          nextPage,
+          20,
+          { loadingType: null, storeKey: 'photos', pageKey: 'currentPage' }
+        )
         return newPhotos.length
-      } catch (error) {
-        this.error = error.message
-        console.error('Failed to load more photos:', error)
-        throw error
       } finally {
         this.isLoadMore = false
       }
@@ -350,123 +361,75 @@ export const usePhotoStore = defineStore('photos', {
 
     // 搜索照片
     async searchPhotos(query) {
-      try {
-        this.setLoadingState('search', true)
-        this.error = null
-        const response = await photoApi.searchPhotos(query)
-        return response.data || []
-      } catch (error) {
-        this.error = error.message
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '搜索失败')
-        throw error
-      } finally {
-        this.setLoadingState('search', false)
-      }
+      return this._apiCall(
+        () => photoApi.searchPhotos(query),
+        'search',
+        '搜索失败'
+      ).then(response => response.data || [])
     },
 
     // 创建照片
     async createPhoto(photoData) {
-      try {
-        this.isLoading = true
-        this.error = null
-        const response = await photoApi.createPhoto(photoData)
-        if (response.success) {
-          this.photos.push(response.data)
-        }
-        return response
-      } catch (error) {
-        this.error = error.message
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '发送创建请求失败')
-
-        throw error
-      } finally {
-        this.isLoading = false
-      }
+      return this._apiCall(
+        async () => {
+          const response = await photoApi.createPhoto(photoData)
+          if (response.success) {
+            this.photos.push(response.data)
+          }
+          return response
+        },
+        null,
+        '发送创建请求失败'
+      )
     },
 
     // 删除照片
     async deletePhoto(id) {
-      try {
-        this.isLoading = true
-        this.error = null
-        const response = await photoApi.deletePhoto(id)
-        if (response.success) {
-          this.photos = this.photos.filter(photo => photo.id !== id)
-        }
-        return response
-      } catch (error) {
-        this.error = error.message
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '发送删除请求失败')
-
-        throw error
-      } finally {
-        this.isLoading = false
-      }
+      return this._apiCall(
+        async () => {
+          const response = await photoApi.deletePhoto(id)
+          if (response.success) {
+            this.photos = this.photos.filter(photo => photo.id !== id)
+          }
+          return response
+        },
+        null,
+        '发送删除请求失败'
+      )
     },
 
     // 获取推荐照片
     async getRecommendPhotos(excludeIds = null) {
       if (this.isLoadMore || !this.hasMore) return
-      try {
-        this.setLoadingState('recommend', true)
-        this.error = null
-        this.hasMore = true
 
-        // 如果没有提供excludeIds，使用上次请求的ID列表
-        const idsToExclude = excludeIds !== null ? excludeIds : this.lastRecommendPhotoIds
+      return this._apiCall(
+        async () => {
+          this.hasMore = true
+          const idsToExclude = excludeIds !== null ? excludeIds : this.lastRecommendPhotoIds
+          const response = await photoApi.getRecommendPhotos(idsToExclude)
+          
+          this.recommendPhotos = response.data || []
+          this.lastRecommendPhotoIds = this.recommendPhotos.map(photo => photo.id)
+          this.hasMore = this.recommendPhotos.length >= 20
 
-        const response = await photoApi.getRecommendPhotos(idsToExclude)
-        this.recommendPhotos = (response.data || [])
-
-        // 记录本次请求返回的图片ID，供下次调用使用
-        this.lastRecommendPhotoIds = this.recommendPhotos.map(photo => photo.id)
-
-        if (this.recommendPhotos.length < 20) {
-          this.hasMore = false
-        }
-
-        return this.recommendPhotos
-      } catch (error) {
-        this.error = error.message
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '加载推荐照片失败')
-        throw error
-      } finally {
-        this.setLoadingState('recommend', false)
-      }
+          return this.recommendPhotos
+        },
+        'recommend',
+        '加载推荐照片失败'
+      )
     },
 
     // 获取未分类照片（第一页）
     async getUncategorizedPhotos() {
-      try {
-        this.setLoadingState('photos', true)
-        this.error = null
-        this.uncategorizedCurrentPage = 1
-        this.hasMore = true
-
-        const response = await photoApi.getUncategorizedPhotos(1, 20, this.currentFilters)
-        this.photos = response.data || []
-
-        // 存储总数量信息（如果后端返回了的话）
-        this.totalUncategorizedCount = response.pagination.total
-
-        // 如果返回的照片数量小于请求的数量，说明没有更多数据了
-        if (this.photos.length < 20) {
-          this.hasMore = false
-        }
-
-        return this.photos
-      } catch (error) {
-        this.error = error.message
-        const notificationStore = useNotificationStore()
-        notificationStore.showError(error.message || '加载未分类照片失败')
-        throw error
-      } finally {
-        this.setLoadingState('photos', false)
-      }
+      this.uncategorizedCurrentPage = 1
+      this.hasMore = true
+      
+      return this._loadPaginatedData(
+        photoApi.getUncategorizedPhotos.bind(photoApi),
+        1,
+        20,
+        { loadingType: 'photos', storeKey: 'photos', pageKey: 'uncategorizedCurrentPage' }
+      )
     },
 
     // 加载更多未分类照片
@@ -476,93 +439,63 @@ export const usePhotoStore = defineStore('photos', {
       try {
         this.isLoadMore = true
         const nextPage = this.uncategorizedCurrentPage + 1
-
-        const response = await photoApi.getUncategorizedPhotos(nextPage, 20, this.currentFilters)
-        const newPhotos = response.data || []
-
-        // 更新总数量信息（如果后端返回了的话）
-        if (response.total !== undefined) {
-          this.totalUncategorizedCount = response.total
-        }
-
-        if (newPhotos.length > 0) {
-          this.photos = [...this.photos, ...newPhotos]
-          this.uncategorizedCurrentPage = nextPage
-
-          // 如果返回的照片数量小于请求的数量，说明没有更多数据了
-          if (newPhotos.length < 20) {
-            this.hasMore = false
-          }
-        } else {
-          this.hasMore = false
-        }
-
+        const newPhotos = await this._loadPaginatedData(
+          photoApi.getUncategorizedPhotos.bind(photoApi),
+          nextPage,
+          20,
+          { loadingType: null, storeKey: 'photos', pageKey: 'uncategorizedCurrentPage' }
+        )
         return newPhotos.length
-      } catch (error) {
-        this.error = error.message
-        console.error('Failed to load more uncategorized photos:', error)
-        throw error
       } finally {
         this.isLoadMore = false
       }
     },
 
+    // 通用的数据获取方法 - 用于tags/folders/locations
+    async _fetchResourceData(resourceName, apiMethod, loadingType) {
+      return this._apiCall(
+        async () => {
+          const response = await apiMethod()
+          const data = response.data?.[resourceName] || response.data || []
+          this[resourceName] = data
+
+          // 特殊处理标签数据状态
+          if (resourceName === 'tags') {
+            this.tagsData.hasRequested = true
+            this.tagsData.isEmpty = data.length === 0
+          }
+
+          return data
+        },
+        loadingType,
+        `Failed to load ${resourceName}`
+      ).catch(error => {
+        // 标签请求失败时也标记为已请求
+        if (resourceName === 'tags') {
+          this.tagsData.hasRequested = true
+        }
+        throw error
+      }).finally(() => {
+        if (resourceName === 'tags') {
+          this.tagsData.isRequesting = false
+        }
+      })
+    },
 
     // 获取标签数据
     async getTagsData() {
-      try {
-        this.tagsData.isRequesting = true
-        this.setLoadingState('tags', true)
-        const response = await photoApi.getTags()
-        this.tags = response.data?.tags || []
-
-        // 更新标签数据状态
-        this.tagsData.hasRequested = true
-        this.tagsData.isEmpty = this.tags.length === 0
-
-        return this.tags
-      } catch (error) {
-        this.error = error.message
-        console.error('Failed to load tags:', error)
-        // 即使请求失败，也标记为已请求，避免重复请求
-        this.tagsData.hasRequested = true
-        throw error
-      } finally {
-        this.tagsData.isRequesting = false
-        this.setLoadingState('tags', false)
-      }
+      this.tagsData.isRequesting = true
+      return this._fetchResourceData('tags', photoApi.getTags.bind(photoApi), 'tags')
     },
 
     // 获取文件夹数据
     async getFoldersData() {
-      try {
-        this.setLoadingState('folders', true)
-        const response = await photoApi.getFolders()
-        this.folders = response.data || []
-        return this.folders
-      } catch (error) {
-        this.error = error.message
-        console.error('Failed to load folders:', error)
-        throw error
-      } finally {
-        this.setLoadingState('folders', false)
-      }
+      return this._fetchResourceData('folders', photoApi.getFolders.bind(photoApi), 'folders')
     },
 
     // 获取地点数据
     async getLocationsData() {
-      try {
-        this.setLoadingState('locations', true)
-        const response = await photoApi.getLocations()
-        this.locations = response.data || []
-        return this.locations
-      } catch (error) {
-        this.error = error.message
-        console.error('Failed to load locations:', error)
-        throw error
-      } finally {
-        this.setLoadingState('locations', false)
-      }
+      return this._fetchResourceData('locations', photoApi.getLocations.bind(photoApi), 'locations')
     },
 
     // 上传图片
