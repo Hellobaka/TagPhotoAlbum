@@ -424,7 +424,7 @@ const closeDialog = () => {
   justify-content: space-between;
   padding: 16px;
   border-radius: 12px;
-  background: var(--md-sys-color-surface-container-low);
+  background: var(--md-sys-color-surface-container-high);
   margin-bottom: 8px;
 }
 
