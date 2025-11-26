@@ -1,5 +1,16 @@
 <template>
   <div>
+    <!-- 隐藏图片提示 -->
+    <transition name="notice-fade">
+      <div v-if="hiddenPhotosCount > 0 && showHiddenNotice" class="hidden-photos-notice">
+        <md-icon>visibility_off</md-icon>
+        <span>有 {{ hiddenPhotosCount }} 张图片因 Tag 过滤策略而被隐藏</span>
+        <md-icon-button @click="closeHiddenNotice" class="close-button">
+          <md-icon>close</md-icon>
+        </md-icon-button>
+      </div>
+    </transition>
+
     <!-- 加载状态 -->
     <div v-if="isLoading" class="loading-state">
       <div class="loading-content">
@@ -15,7 +26,7 @@
       ref="gridContainer"
     >
       <MasonryWall
-        :items="photos"
+        :items="visiblePhotos"
         :ssr-columns="4"
         :column-width="300"
         :gap="16"
@@ -25,7 +36,11 @@
         :scroll-container="scrollContainer"
         v-slot="{ item: photo, index }"
       >
-        <div class="masonry-item" @click="openPhotoDetail(photo)">
+        <div 
+          class="masonry-item" 
+          :class="{ 'photo-blurred': shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) }"
+          @click="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) ? null : openPhotoDetail(photo)"
+        >
           <div class="image-wrapper">
             <img
               v-if="imageStatus[photo.id] !== 'error'"
@@ -51,6 +66,19 @@
             >
               <md-icon>broken_image</md-icon>
             </div>
+            <!-- 模糊遮罩层 -->
+            <transition name="blur-fade">
+              <div 
+                v-if="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)"
+                class="blur-mask"
+                @click.stop="removeBlur(photo.id)"
+              >
+                <div class="blur-mask-content">
+                  <md-icon class="blur-icon">visibility_off</md-icon>
+                  <span class="blur-text">点击查看</span>
+                </div>
+              </div>
+            </transition>
           </div>
           <div class="photo-overlay">
             <div class="photo-info">
@@ -86,6 +114,7 @@
                   :key="tag"
                   :label="tag"
                   size="small"
+                  :class="getTagChipClass(tag)"
                   @click="handleTagClick(tag, $event)"
                 />
                 <md-assist-chip
@@ -99,7 +128,7 @@
         </div>
         <!-- 在MasonryWall内部放置哨兵元素 -->
         <div
-          v-if="index === photos.length - 1 || photos.length === 0"
+          v-if="index === visiblePhotos.length - 1 || visiblePhotos.length === 0"
           ref="sentinel"
           class="load-more-sentinel"
         ></div>
@@ -114,10 +143,11 @@
     >
       <div class="grid-items">
         <div
-          v-for="(photo, index) in photos"
+          v-for="(photo, index) in visiblePhotos"
           :key="photo.id"
           class="grid-item"
-          @click="openPhotoDetail(photo)"
+          :class="{ 'photo-blurred': shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) }"
+          @click="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id) ? null : openPhotoDetail(photo)"
         >
           <div class="image-wrapper">
             <img
@@ -143,6 +173,19 @@
             >
               <md-icon>broken_image</md-icon>
             </div>
+            <!-- 模糊遮罩层 -->
+            <transition name="blur-fade">
+              <div 
+                v-if="shouldBlurPhoto(photo) && !unblurredPhotoIds.has(photo.id)"
+                class="blur-mask"
+                @click.stop="removeBlur(photo.id)"
+              >
+                <div class="blur-mask-content">
+                  <md-icon class="blur-icon">visibility_off</md-icon>
+                  <span class="blur-text">点击查看</span>
+                </div>
+              </div>
+            </transition>
           </div>
         </div>
       </div>
@@ -181,7 +224,7 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-if="!isLoading && photos.length === 0" class="empty-state">
+    <div v-if="!isLoading && visiblePhotos.length === 0 && hiddenPhotosCount === 0" class="empty-state">
       <span class="material-symbols-outlined empty-icon">photo</span>
       <h3 class="md-typescale-headline-small">没有找到照片</h3>
       <p class="md-typescale-body-medium">尝试调整筛选条件或搜索关键词</p>
@@ -241,6 +284,66 @@ const scrollContainer = ref(null);
 
 // 图片加载状态管理
 const imageStatus = ref({}); // { [photo.id]: 'loading' | 'loaded' | 'error' }
+
+// Tag 过滤策略
+const tagFilterStrategies = ref([])
+const unblurredPhotoIds = ref(new Set()) // 已取消模糊的图片ID
+const showHiddenNotice = ref(true) // 控制隐藏提示的显示
+
+// 加载 Tag 过滤策略
+const loadTagFilterStrategies = () => {
+  const saved = localStorage.getItem('tagFilterStrategies')
+  if (saved) {
+    try {
+      tagFilterStrategies.value = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse tag filter strategies:', e)
+      tagFilterStrategies.value = []
+    }
+  }
+}
+
+// 判断图片是否应该被隐藏
+const shouldHidePhoto = (photo) => {
+  if (!photo.tags || !Array.isArray(photo.tags)) return false
+  return photo.tags.some(tag => {
+    const filter = tagFilterStrategies.value.find(f => f.tag === tag)
+    return filter && filter.strategy === 'hide'
+  })
+}
+
+// 判断图片是否应该被模糊
+const shouldBlurPhoto = (photo) => {
+  if (!photo.tags || !Array.isArray(photo.tags)) return false
+  return photo.tags.some(tag => {
+    const filter = tagFilterStrategies.value.find(f => f.tag === tag)
+    return filter && filter.strategy === 'blur'
+  })
+}
+
+// 可见的图片列表（过滤掉被隐藏的）
+const visiblePhotos = computed(() => {
+  return props.photos.filter(photo => !shouldHidePhoto(photo))
+})
+
+// 被隐藏的图片数量
+const hiddenPhotosCount = computed(() => {
+  return props.photos.length - visiblePhotos.value.length
+})
+
+// 移除模糊效果
+const removeBlur = (photoId) => {
+  const hasBlur = unblurredPhotoIds.value.has(photoId)
+  unblurredPhotoIds.value.add(photoId)
+  return !hasBlur
+}
+
+// 获取 Tag Chip 的 CSS 类
+const getTagChipClass = (tagName) => {
+  const filter = tagFilterStrategies.value.find(f => f.tag === tagName)
+  if (!filter) return ''
+  return 'tag-filter'
+}
 
 // 监听 photos，初始化每张图片的加载状态
 watch(
@@ -353,9 +456,22 @@ const reconfigureObserver = () => {
   setupIntersectionObserver();
 };
 
+// 公开方法：刷新过滤策略
+const refreshFilters = () => {
+  console.log("🔄 Refreshing tag filter strategies");
+  loadTagFilterStrategies();
+  // 重置已取消模糊的图片列表
+  unblurredPhotoIds.value.clear();
+  // 显示隐藏提示（如果有隐藏的图片）
+  if (hiddenPhotosCount.value > 0) {
+    showHiddenNotice.value = true;
+  }
+};
+
 // 组件就绪时通知父组件
 defineExpose({
   reconfigureObserver,
+  refreshFilters,
 });
 
 // 计算加载文本
@@ -440,9 +556,81 @@ const getImageUrl = (photo) => {
   }
   return url;
 };
+
+// 关闭隐藏提示
+const closeHiddenNotice = () => {
+  showHiddenNotice.value = false
+}
+
+// 组件挂载时加载过滤策略
+onMounted(() => {
+  loadTagFilterStrategies()
+  // 监听 localStorage 变化，及时更新策略
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'tagFilterStrategies') {
+      loadTagFilterStrategies()
+    }
+  })
+})
+
+// 监听隐藏图片数量变化，自动显示提示
+watch(hiddenPhotosCount, (newCount) => {
+  if (newCount > 0) {
+    showHiddenNotice.value = true
+  }
+})
 </script>
 
 <style scoped>
+/* 隐藏图片提示 */
+.hidden-photos-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  margin: 16px 24px 0;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  position: relative;
+}
+
+.hidden-photos-notice md-icon {
+  font-size: 20px;
+}
+
+.hidden-photos-notice .close-button {
+  margin-left: auto;
+  --md-icon-button-icon-size: 20px;
+}
+
+/* 隐藏提示过渡动画 */
+.notice-fade-enter-active,
+.notice-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease, margin 0.3s ease;
+}
+
+.notice-fade-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.notice-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 /* 加载状态 */
 .loading-state {
   display: flex;
@@ -482,6 +670,91 @@ const getImageUrl = (photo) => {
 .masonry-item:hover {
   transform: translateY(-2px);
   box-shadow: var(--md-sys-elevation-level3);
+}
+
+/* 模糊图片样式 */
+.photo-blurred .image-wrapper img {
+  filter: blur(20px);
+}
+
+/* 模糊遮罩层 */
+.blur-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+/* 模糊遮罩淡出过渡动画 */
+.blur-fade-enter-active,
+.blur-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.blur-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.blur-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.05);
+}
+
+.blur-mask:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.blur-mask-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  text-align: center;
+  padding: 20px;
+}
+
+.blur-mask-content .blur-icon {
+  opacity: 0.9;
+  transition: all 0.3s ease;
+}
+
+.blur-mask-content .blur-text {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  transform: translateY(-10px);
+}
+
+/* hover 时显示文字 */
+.blur-mask:hover .blur-icon {
+  margin-bottom: 4px;
+}
+
+.blur-mask:hover .blur-text {
+  opacity: 1;
+  max-height: 50px;
+  transform: translateY(0);
+}
+
+.blur-text {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.tag-filter {
+  background-color: var(--md-sys-color-error-container);
+  font-weight: 500;
 }
 
 /* 方形网格布局样式 */
@@ -592,6 +865,7 @@ const getImageUrl = (photo) => {
   padding: 16px;
   opacity: 0;
   transition: opacity 0.2s;
+  z-index: 9;
 }
 
 .masonry-item:hover .photo-overlay {

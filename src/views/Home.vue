@@ -36,6 +36,7 @@
         @select-location="selectLocation"
         @toggle-rating="toggleRating"
         @open-passkey-management="openPasskeyManagementDialog"
+        @open-tag-filter-dialog="openTagFilterDialog"
       />
 
       <!-- 主内容区 -->
@@ -184,6 +185,13 @@
       :show="showPasskeyManagementDialog"
       @close="closePasskeyManagementDialog"
     />
+
+    <!-- Tag 过滤策略管理对话框 -->
+    <TagFilterDialog
+      :show="showTagFilterDialog"
+      @close="closeTagFilterDialog"
+      @update="handleTagFilterUpdate"
+    />
   </div>
 </template>
 
@@ -200,6 +208,7 @@ import PhotoDialog from '@/components/PhotoDialog.vue'
 import CategorizeDialog from '@/components/CategorizeDialog.vue'
 import UploadZone from '@/components/UploadZone.vue'
 import PasskeyManagementDialog from '@/components/PasskeyManagementDialog.vue'
+import TagFilterDialog from '@/components/TagFilterDialog.vue'
 import { useNotificationStore } from '@/stores/notificationStore'
 
 // 响应式数据
@@ -224,6 +233,7 @@ const isRefreshing = ref(false)
 const isMobile = ref(false)
 const photoGridRef = ref(null)
 const showPasskeyManagementDialog = ref(false)
+const showTagFilterDialog = ref(false)
 const currentLayout = ref('masonry') // 默认瀑布流布局
 const isFilterHidden = ref(false) // 筛选条隐藏状态
 let lastScrollTop = 0 // 记录上次滚动位置
@@ -769,6 +779,23 @@ const toggleTheme = () => {
   themeStore.toggleTheme()
 }
 
+// Tag 过滤对话框相关
+const openTagFilterDialog = () => {
+  showTagFilterDialog.value = true
+}
+
+const closeTagFilterDialog = () => {
+  showTagFilterDialog.value = false
+}
+
+const handleTagFilterUpdate = (filters) => {
+  // 过滤策略更新后，刷新 PhotoGrid 的过滤显示
+  if (photoGridRef.value) {
+    photoGridRef.value.refreshFilters();
+    notificationStore.showSuccess('过滤策略已更新');
+  }
+}
+
 // 计算主题图标
 const getThemeIcon = computed(() => {
   switch (themeStore.themeMode) {
@@ -905,9 +932,6 @@ onUnmounted(() => {
   border-radius: 20px;
   white-space: nowrap;
 }
-
-
-
 
 /* 瀑布流样式 */
 .masonry-grid {

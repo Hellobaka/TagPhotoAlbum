@@ -33,13 +33,19 @@
     <div class="filter-content" v-if="!isCollapsed">
       <!-- 标签筛选 -->
       <div v-if="activeTab === 'tags'" class="filter-section">
-        <h3 class="filter-title">标签</h3>
+        <div class="filter-title-row">
+          <h3 class="filter-title">标签</h3>
+          <md-icon-button @click="openTagFilterDialog" title="Tag 过滤策略">
+            <span class="material-symbols-outlined">filter_alt</span>
+          </md-icon-button>
+        </div>
         <div class="filter-items">
           <md-filter-chip
             v-for="tag in photoStore.computedTags"
             :key="tag.name"
             :label="`${tag.name} (${tag.count})`"
             :selected="selectedTags.includes(tag.name)"
+            :class="getTagClass(tag.name)"
             @click="toggleTag(tag.name)"
           />
         </div>
@@ -96,7 +102,7 @@ import { usePhotoStore } from '@/stores/photoStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { useRouter } from 'vue-router'
-import { onMounted, watch, ref } from 'vue'
+import { onMounted, onUnmounted, watch, ref } from 'vue'
 import { photoApi } from '@/api/photoApi'
 
 const props = defineProps({
@@ -134,8 +140,37 @@ const emit = defineEmits([
   'select-location',
   'toggle-rating',
   'logout',
-  'open-passkey-management'
+  'open-passkey-management',
+  'open-tag-filter-dialog'
 ])
+
+// Tag 过滤策略
+const tagFilterStrategies = ref([])
+
+// 加载 Tag 过滤策略
+const loadTagFilterStrategies = () => {
+  const saved = localStorage.getItem('tagFilterStrategies')
+  if (saved) {
+    try {
+      tagFilterStrategies.value = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse tag filter strategies:', e)
+      tagFilterStrategies.value = []
+    }
+  }
+}
+
+// 获取 Tag 的 CSS 类
+const getTagClass = (tagName) => {
+  const filter = tagFilterStrategies.value.find(f => f.tag === tagName)
+  if (!filter) return ''
+  return 'tag-filter'
+}
+
+// 打开 Tag 过滤对话框
+const openTagFilterDialog = () => {
+  emit('open-tag-filter-dialog')
+}
 
 // 标签页配置
 const tabs = [
@@ -199,7 +234,22 @@ onMounted(() => {
   if (!props.isCollapsed) {
     loadFilterData(props.activeTab)
   }
+  // 加载 Tag 过滤策略
+  loadTagFilterStrategies()
+  
+  // 监听 localStorage 变化
+  window.addEventListener('storage', handleStorageChange)
 })
+
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorageChange)
+})
+
+const handleStorageChange = (e) => {
+  if (e.key === 'tagFilterStrategies') {
+    loadTagFilterStrategies()
+  }
+}
 
 // 方法
 const toggleSidebar = () => {
@@ -345,17 +395,29 @@ const handleLogout = () => {
   margin-bottom: 24px;
 }
 
+.filter-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .filter-title {
   font-size: 14px;
   font-weight: 500;
   color: var(--md-sys-color-on-surface);
-  margin-bottom: 12px;
+  margin: 0;
 }
 
 .filter-items {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.tag-filter {
+  background-color: var(--md-sys-color-error-container);
+  font-weight: 500;
 }
 
 /* 响应式设计 */
