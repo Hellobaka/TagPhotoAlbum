@@ -85,9 +85,23 @@ const closeDialog = () => {
   emit('close')
 }
 
-const addTag = () => {
-  if (newTag.value.trim() && !editablePhoto.value.tags.includes(newTag.value.trim())) {
-    editablePhoto.value.tags.push(newTag.value.trim())
+const addTag = (tagToAdd = null) => {
+  // 如果传入了标签参数，使用参数；否则使用 newTag.value
+  const trimmedTag = tagToAdd ? tagToAdd.trim() : newTag.value.trim()
+  if (!trimmedTag) return
+  
+  // 检查标签是否已存在
+  if (editablePhoto.value.tags.includes(trimmedTag)) {
+    // 如果标签在待删除列表中，从列表中移除（取消删除）
+    const removeIndex = tagsToRemove.value.indexOf(trimmedTag)
+    if (removeIndex > -1) {
+      tagsToRemove.value.splice(removeIndex, 1)
+      newTag.value = ''
+    }
+    // 如果标签已存在且不在待删除列表中，不做任何操作
+  } else {
+    // 标签不存在，添加到标签列表
+    editablePhoto.value.tags.push(trimmedTag)
     newTag.value = ''
   }
 }
@@ -104,17 +118,22 @@ const toggleTagForRemoval = (tag) => {
 }
 
 const toggleTag = (tag) => {
-  const currentTags = editablePhoto.value.tags.filter(tag => !tagsToRemove.value.includes(tag)) || []
-  if (currentTags.includes(tag)) {
-    tagsToRemove.value.push(tag)
-  } else if(tagsToRemove.value.includes(tag)) {
+  // 检查标签是否在照片的标签列表中
+  const tagExistsInPhoto = editablePhoto.value.tags.includes(tag)
+  
+  if (tagExistsInPhoto) {
+    // 标签已存在，切换待删除状态
     const index = tagsToRemove.value.indexOf(tag)
     if (index > -1) {
+      // 标签已被标记为删除，取消删除标记
       tagsToRemove.value.splice(index, 1)
+    } else {
+      // 标签未被标记为删除，标记为删除
+      tagsToRemove.value.push(tag)
     }
   } else {
-    // 如果标签不存在，则添加
-    editablePhoto.value.tags = [...currentTags, tag]
+    // 标签不存在，添加标签
+    editablePhoto.value.tags.push(tag)
   }
 }
 

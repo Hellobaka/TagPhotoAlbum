@@ -120,10 +120,7 @@ export const usePhotoStore = defineStore('photos', {
     // 未分类照片
     uncategorizedPhotos: (state) => {
       return state.photos.filter(photo =>
-        !photo.tags || photo.tags.length === 0 ||
-        !photo.folder || photo.folder === '' ||
-        !photo.location || photo.location === '' ||
-        !photo.title || photo.title === '未命名'
+        !photo.folder || photo.folder === '未分类' 
       )
     }
   },

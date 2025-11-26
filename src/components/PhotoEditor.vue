@@ -393,9 +393,12 @@ const filteredTags = computed(() => {
 
 // 方法
 const addTag = () => {
-  if (props.newTag.trim() && !props.editablePhoto.tags.includes(props.newTag.trim())) {
-    emit('add-tag', props.newTag.trim())
-  }
+  const trimmedTag = props.newTag.trim()
+  if (!trimmedTag) return
+  
+  // 无论标签是否存在，都触发 add-tag 事件
+  // 让父组件决定如何处理（添加新标签或取消删除标记）
+  emit('add-tag', trimmedTag)
 }
 
 
@@ -415,8 +418,10 @@ const toggleInfoVisibility = () => {
 }
 
 const selectTagSuggestion = (tag) => {
-  emit('update:newTag', tag)
-  addTag()
+  // 直接触发 add-tag 事件，传递选中的标签
+  emit('add-tag', tag)
+  // 清空输入框
+  emit('update:newTag', '')
   closeTagSuggestionsWithAnimation()
 }
 
@@ -433,7 +438,7 @@ const handleTagBlur = () => {
 }
 
 const handleTagKeydown = (e) => {
-  if (!showTagSuggestions.value || filteredTags.value.length === 0) {
+  if (e.key != 'Enter' && (!showTagSuggestions.value || filteredTags.value.length === 0)) {
     return
   }
 
