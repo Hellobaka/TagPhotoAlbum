@@ -809,8 +809,8 @@ watch(hiddenPhotosCount, (newCount) => {
 }
 
 .grid-item:hover {
-  transform: scale(1.02) translateZ(0); /* 减小缩放比例，使用GPU加速 */
-  box-shadow: var(--md-sys-elevation-level2); /* 降低阴影级别 */
+  transform: scale(1.02) translateZ(0);
+  box-shadow: var(--md-sys-elevation-level2);
 }
 
 .grid-item .image-wrapper {
@@ -891,7 +891,7 @@ watch(hiddenPhotosCount, (newCount) => {
   color: white;
   padding: 16px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s 0.3s;
   z-index: 9;
 }
 
@@ -902,6 +902,9 @@ watch(hiddenPhotosCount, (newCount) => {
 .photo-info h4 {
   margin: 0 0 4px 0;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 评分显示样式 */

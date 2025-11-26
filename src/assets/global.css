@@ -42,7 +42,8 @@
   --md-sys-color-on-secondary: #FFFFFF;
   --md-sys-color-secondary-container: #E8DEF8;
   --md-sys-color-on-secondary-container: #1D192B;
-
+  --md-assist-chip-label-text-color: white;
+  
   /* 表面颜色 */
   --md-sys-color-surface: #FFFBFE;
   --md-sys-color-on-surface: #1C1B1F;
