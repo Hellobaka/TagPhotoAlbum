@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { photoApi } from '@/api/photoApi'
 import { useNotificationStore } from './notificationStore'
 import UPLOAD_CONFIG from '@/config/upload'
+import { findAndUpdate } from '@/utils/dataHelper'
 
 export const usePhotoStore = defineStore('photos', {
   state: () => ({
@@ -117,6 +118,22 @@ export const usePhotoStore = defineStore('photos', {
   },
 
   actions: {
+    // 获取分页状态管理对象 - 统一管理分页相关状态
+    _getPaginationState(stateKey = 'currentPage') {
+      if (stateKey === 'uncategorizedCurrentPage') {
+        return {
+          pageKey: 'uncategorizedCurrentPage',
+          currentPage: this.uncategorizedCurrentPage,
+          setCurrentPage: (page) => { this.uncategorizedCurrentPage = page }
+        }
+      }
+      return {
+        pageKey: stateKey,
+        currentPage: this.currentPage,
+        setCurrentPage: (page) => { this.currentPage = page }
+      }
+    },
+
     // 通用的API调用包装器 - 减少重复的try-catch-finally代码
     async _apiCall(apiMethod, loadingType, errorMessage, ...args) {
       try {
@@ -173,6 +190,33 @@ export const usePhotoStore = defineStore('photos', {
       }
     },
 
+    // 执行加载更多操作 - 统一处理 loadMore 逻辑
+    async _executeLoadMore(apiMethod, options = {}) {
+      const {
+        loadingType = null,
+        storeKey = 'photos',
+        pageKey = 'currentPage',
+        pageSize = 20
+      } = options
+
+      if (this.isLoadMore || !this.hasMore) return
+
+      try {
+        this.isLoadMore = true
+        const paginationState = this._getPaginationState(pageKey)
+        const nextPage = paginationState.currentPage + 1
+        const newPhotos = await this._loadPaginatedData(
+          apiMethod,
+          nextPage,
+          pageSize,
+          { loadingType, storeKey, pageKey }
+        )
+        return newPhotos.length
+      } finally {
+        this.isLoadMore = false
+      }
+    },
+
     // 初始化标签数据（在 PhotoGrid 组件加载时调用）
     async initTagsData() {
       if (this.tagsData.hasRequested) return
@@ -181,7 +225,7 @@ export const usePhotoStore = defineStore('photos', {
 
     setActiveTab(tab) {
       this.activeTab = tab
-      if (tab == 'uncategorized' && this.clearFilters.folder == '未分类') {
+      if (tab === 'uncategorized' && this.currentFilters.folder === '未分类') {
         this.currentFilters.folder = null
       }
     },
@@ -208,16 +252,9 @@ export const usePhotoStore = defineStore('photos', {
 
     // 通用的照片更新方法 - 在多个数组中查找并更新
     _updatePhotoInArrays(updatedPhoto) {
-      const arrays = [
-        { key: 'photos', array: this.photos },
-        { key: 'recommendPhotos', array: this.recommendPhotos }
-      ]
-
-      arrays.forEach(({ array }) => {
-        const index = array.findIndex(photo => photo.id === updatedPhoto.id)
-        if (index !== -1) {
-          array[index] = updatedPhoto
-        }
+      const arrays = [this.photos, this.recommendPhotos]
+      arrays.forEach(array => {
+        findAndUpdate(array, 'id', updatedPhoto.id, updatedPhoto)
       })
     },
 
@@ -315,21 +352,10 @@ export const usePhotoStore = defineStore('photos', {
 
     // 加载更多照片
     async loadMorePhotos() {
-      if (this.isLoadMore || !this.hasMore) return
-
-      try {
-        this.isLoadMore = true
-        const nextPage = this.currentPage + 1
-        const newPhotos = await this._loadPaginatedData(
-          photoApi.getPhotosPaginated.bind(photoApi),
-          nextPage,
-          20,
-          { loadingType: null, storeKey: 'photos', pageKey: 'currentPage' }
-        )
-        return newPhotos.length
-      } finally {
-        this.isLoadMore = false
-      }
+      return this._executeLoadMore(
+        photoApi.getPhotosPaginated.bind(photoApi),
+        { loadingType: null, storeKey: 'photos', pageKey: 'currentPage' }
+      )
     },
 
     // 更新筛选条件并重新加载
@@ -346,8 +372,8 @@ export const usePhotoStore = defineStore('photos', {
       }
     },
 
-    // 清除筛选条件
-    clearFilters() {
+    // 清除和重置筛选条件
+    resetFilters() {
       this.currentFilters = {
         tags: [],
         folder: null,
@@ -357,6 +383,11 @@ export const usePhotoStore = defineStore('photos', {
         sortBy: 'date',
         sortOrder: 'desc'
       }
+    },
+
+    // 向后兼容：clearFilters 现在调用 resetFilters
+    clearFilters() {
+      this.resetFilters()
     },
 
     // 搜索照片
@@ -434,21 +465,10 @@ export const usePhotoStore = defineStore('photos', {
 
     // 加载更多未分类照片
     async loadMoreUncategorizedPhotos() {
-      if (this.isLoadMore || !this.hasMore) return
-
-      try {
-        this.isLoadMore = true
-        const nextPage = this.uncategorizedCurrentPage + 1
-        const newPhotos = await this._loadPaginatedData(
-          photoApi.getUncategorizedPhotos.bind(photoApi),
-          nextPage,
-          20,
-          { loadingType: null, storeKey: 'photos', pageKey: 'uncategorizedCurrentPage' }
-        )
-        return newPhotos.length
-      } finally {
-        this.isLoadMore = false
-      }
+      return this._executeLoadMore(
+        photoApi.getUncategorizedPhotos.bind(photoApi),
+        { loadingType: null, storeKey: 'photos', pageKey: 'uncategorizedCurrentPage' }
+      )
     },
 
     // 通用的数据获取方法 - 用于tags/folders/locations

@@ -1,7 +1,10 @@
 import { ref } from 'vue'
+import { useEventListener } from './useEventListener'
 
 /**
  * 上传区域管理的组合函数
+ * 
+ * 处理全局拖拽文件上传区域的显示/隐藏
  */
 export function useUploadZone() {
   const showUploadZone = ref(false)
@@ -41,6 +44,28 @@ export function useUploadZone() {
       }, 300)
     }
   }
+
+  // 使用 useEventListener 自动管理事件监听和清理
+  useEventListener([
+    {
+      eventName: 'dragover',
+      handler: handleGlobalDragOver,
+      target: document,
+      options: { passive: false }
+    },
+    {
+      eventName: 'dragleave',
+      handler: handleGlobalDragLeave,
+      target: document,
+      options: { passive: false }
+    },
+    {
+      eventName: 'drop',
+      handler: handleGlobalDrop,
+      target: document,
+      options: { passive: false }
+    }
+  ])
 
   return {
     showUploadZone,

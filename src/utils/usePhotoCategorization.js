@@ -1,11 +1,14 @@
 import { ref } from 'vue'
 import { usePhotoStore } from '@/stores/photoStore'
+import { useNotificationStore } from '@/stores/notificationStore'
+import { findAndRemove } from '@/utils/dataHelper'
 
 /**
  * 照片分类管理的组合函数
  */
 export function usePhotoCategorization() {
   const photoStore = usePhotoStore()
+  const notificationStore = useNotificationStore()
   const isCategorizing = ref(false)
 
   // 开始分类
@@ -28,22 +31,15 @@ export function usePhotoCategorization() {
     try {
       await photoStore.updatePhoto(photoData)
 
-      // 从本地数据中移除当前照片
+      // 使用 dataHelper 从本地数据中移除当前照片
       const photoId = photoData.id
-
-      // 从 photos 数组中移除
-      const photoIndex = photoStore.photos.findIndex(photo => photo.id === photoId)
-      if (photoIndex !== -1) {
-        photoStore.photos.splice(photoIndex, 1)
-      }
-
-      // 从 recommendPhotos 数组中移除
-      const recommendIndex = photoStore.recommendPhotos.findIndex(photo => photo.id === photoId)
-      if (recommendIndex !== -1) {
-        photoStore.recommendPhotos.splice(recommendIndex, 1)
-      }
+      findAndRemove(photoStore.photos, 'id', photoId)
+      findAndRemove(photoStore.recommendPhotos, 'id', photoId)
+      
+      notificationStore.showSnackbar('照片已分类', 'success')
     } catch (error) {
       console.error('保存图片信息失败:', error)
+      notificationStore.showSnackbar('保存失败，请重试', 'error')
     }
   }
 

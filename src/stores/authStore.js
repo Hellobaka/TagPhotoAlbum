@@ -4,6 +4,7 @@ import { photoApi } from '@/api/photoApi'
 import { useNotificationStore } from './notificationStore'
 import API_CONFIG from '@/config/api'
 import CryptoJS from 'crypto-js'
+import { setStorage, getStorage, removeStorage, StorageKeys } from '@/utils/storage'
 
 // 安全登录相关工具函数
 const generateNonce = () => {
@@ -12,18 +13,58 @@ const generateNonce = () => {
 
 // 使用crypto-js实现HMAC-SHA256，与后端算法保持一致
 const calculateHMAC = async (payload) => {
-  // 使用crypto-js计算HMAC-SHA256
   const hmac = CryptoJS.HmacSHA256(payload, API_CONFIG.HMAC_KEY)
-  // 转换为十六进制字符串（与后端保持一致）
   return hmac.toString(CryptoJS.enc.Hex)
 }
 
 // 使用SHA-256计算密码哈希
 const calculatePasswordHash = async (password) => {
-  // 使用crypto-js计算SHA-256哈希
   const hash = CryptoJS.SHA256(password)
-  // 转换为Base64字符串（与后端保持一致）
   return CryptoJS.enc.Base64.stringify(hash)
+}
+
+// 转换 base64url 为字节数组
+const base64urlToBytes = (base64url) => {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/')
+  const pad = base64.length % 4
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64
+  const binaryString = atob(padded)
+  return Uint8Array.from(binaryString, c => c.charCodeAt(0))
+}
+
+// 转换 ArrayBuffer 为 base64url
+const arrayBufferToBase64Url = (arrayBuffer) => {
+  const uint8Array = arrayBuffer instanceof Uint8Array ? arrayBuffer : new Uint8Array(arrayBuffer)
+  let binaryString = ''
+  const chunkSize = 8192
+
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    binaryString += String.fromCharCode.apply(null, uint8Array.subarray(i, i + chunkSize))
+  }
+
+  const base64 = btoa(binaryString)
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+// 保存登录状态到存储
+const saveAuthState = (token, user, additionalData = {}) => {
+  setStorage(StorageKeys.AUTH_TOKEN, token)
+  setStorage(StorageKeys.AUTH_USER, user)
+  
+  if (additionalData.serverTimestamp) {
+    setStorage('server_timestamp', additionalData.serverTimestamp)
+  }
+  if (additionalData.nextNonceSeed) {
+    setStorage('next_nonce_seed', additionalData.nextNonceSeed)
+  }
+}
+
+// 清除登录状态
+const clearAuthState = () => {
+  removeStorage(StorageKeys.AUTH_TOKEN)
+  removeStorage(StorageKeys.AUTH_USER)
+  removeStorage('server_timestamp')
+  removeStorage('next_nonce_seed')
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -77,58 +118,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const base64urlToBytes = (base64url) => {
-    const base64 = base64url
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-    const pad = base64.length % 4;
-    const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
-    const binaryString = atob(padded);
-    return Uint8Array.from(binaryString, c => c.charCodeAt(0));
-  }
-
-  const arrayBufferToBase64Url = (arrayBuffer) => {
-    // 1. 确保输入是 ArrayBuffer 或 Uint8Array，并转换为 Uint8Array 视图
-    const uint8Array = arrayBuffer instanceof Uint8Array
-      ? arrayBuffer
-      : new Uint8Array(arrayBuffer);
-
-    // 2. 将 Uint8Array 转换为一个 "binary string"
-    //    btoa() 函数期望一个字符串，其中每个字符的编码点代表一个字节。
-    //    对于大型 ArrayBuffer，直接使用 String.fromCharCode(...uint8Array) 会导致栈溢出。
-    //    因此，我们使用分块处理的方式。
-    let binaryString = '';
-    const chunkSize = 8192; // 可以根据需要调整分块大小，例如 8KB
-
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      binaryString += String.fromCharCode.apply(
-        null, // apply 的第一个参数是 this，这里不需要
-        uint8Array.subarray(i, i + chunkSize) // 获取当前分块
-      );
-    }
-
-    // 3. 将二进制字符串编码为标准的 Base64
-    const base64 = btoa(binaryString);
-
-    // 4. 将标准 Base64 转换为 Base64Url
-    //    - 替换 '+' 为 '-'
-    //    - 替换 '/' 为 '_'
-    //    - 移除末尾的 '=' 填充字符
-    return base64
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/g, '');
-  };
-
   // PassKey 登录
   const loginWithPasskey = async () => {
     isLoading.value = true
 
     try {
-      // 1. 从后端获取认证选项
       const options = await getPasskeyAuthenticationOptions('')
 
-      // 2. 转换选项格式为 WebAuthn 标准格式
       const publicKey = {
         challenge: base64urlToBytes(options.challenge),
         allowCredentials: options.allowCredentials?.map(credId => ({
@@ -141,12 +137,8 @@ export const useAuthStore = defineStore('auth', () => {
         rpId: options.relyingPartyId || window.location.hostname
       }
 
-      // 3. 调用 WebAuthn API
-      const credential = await navigator.credentials.get({
-        publicKey
-      })
+      const credential = await navigator.credentials.get({ publicKey })
 
-      // 4. 转换认证结果
       const authenticationData = {
         response: {
           id: credential.id,
@@ -163,18 +155,13 @@ export const useAuthStore = defineStore('auth', () => {
         challenge: options.challenge
       }
 
-      // 5. 发送认证结果到后端验证
       const result = await authenticateWithPasskey(authenticationData)
 
       if (result && result.success) {
         console.log('Passkey login successful')
         user.value = result.data.user
         isAuthenticated.value = true
-
-        // 保存登录状态到 localStorage
-        localStorage.setItem('auth_token', result.data.token)
-        localStorage.setItem('user', JSON.stringify(result.data.user))
-
+        saveAuthState(result.data.token, result.data.user)
         return [true, '通行密钥登录成功']
       }
 
@@ -182,7 +169,6 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (error) {
       console.error('Passkey login error:', error)
 
-      // 显示错误到SnackBar
       const notificationStore = useNotificationStore()
 
       if (error.name === 'NotAllowedError') {
@@ -207,20 +193,12 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       console.log('Login attempt:', { username })
 
-      // 生成安全参数
       const timestamp = Date.now()
       const nonce = generateNonce()
-
-      // 计算密码哈希
       const passwordHash = await calculatePasswordHash(password)
-
-      // 构建签名载荷
       const payload = `${username}:${passwordHash}:${timestamp}:${nonce}`
-
-      // 计算HMAC签名（使用配置的HMAC密钥）
       const signature = await calculateHMAC(payload)
 
-      // 构建安全登录凭据
       const secureCredentials = {
         username,
         passwordHash,
@@ -229,20 +207,16 @@ export const useAuthStore = defineStore('auth', () => {
         signature
       }
 
-      // 调用登录API
       const response = await photoApi.login(secureCredentials)
 
       if (response && response.success) {
         console.log('Login successful')
         user.value = response.data.user
         isAuthenticated.value = true
-
-        // 保存登录状态到 localStorage
-        localStorage.setItem('auth_token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
-        localStorage.setItem('server_timestamp', response.data.serverTimestamp)
-        localStorage.setItem('next_nonce_seed', response.data.nextNonceSeed)
-
+        saveAuthState(response.data.token, response.data.user, {
+          serverTimestamp: response.data.serverTimestamp,
+          nextNonceSeed: response.data.nextNonceSeed
+        })
         return [true, '登录成功']
       }
 
@@ -250,11 +224,8 @@ export const useAuthStore = defineStore('auth', () => {
       return [false, '用户名或密码错误']
     } catch (error) {
       console.error('Secure login error:', error)
-
-      // 显示错误到SnackBar
       const notificationStore = useNotificationStore()
       notificationStore.showError(error.message || '登录失败，请稍后重试')
-
       return [false, error.message || '服务端异常']
     } finally {
       isLoading.value = false
@@ -264,19 +235,16 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = () => {
     user.value = null
     isAuthenticated.value = false
-
-    // 清除本地存储
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user')
+    clearAuthState()
   }
 
   const checkAuth = () => {
-    const token = localStorage.getItem('auth_token')
-    const userData = localStorage.getItem('user')
+    const token = getStorage(StorageKeys.AUTH_TOKEN)
+    const userData = getStorage(StorageKeys.AUTH_USER)
 
-    if (token && userData && userData !== 'undefined') {
+    if (token && userData) {
       try {
-        user.value = JSON.parse(userData)
+        user.value = userData
         isAuthenticated.value = true
         return true
       } catch (error) {

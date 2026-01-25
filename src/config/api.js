@@ -1,9 +1,9 @@
 // API 配置
 const API_CONFIG = {
   // 后端 API 基础地址
-  // 开发环境：空字符串（使用代理）
+  // 开发环境：空字符串（使用 Vite 代理）
   // 生产环境：后端服务器地址，例如：'https://api.your-domain.com'
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5085',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '' : 'http://localhost:5085'),
 
   // API 路径前缀
   API_PREFIX: '/api',

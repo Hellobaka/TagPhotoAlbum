@@ -1,6 +1,7 @@
 import axios from 'axios'
 import API_CONFIG from '@/config/api'
 import UPLOAD_CONFIG from '@/config/upload'
+import { getStorage, StorageKeys } from '@/utils/storage'
 
 const API_BASE_URL = `${API_CONFIG.BASE_URL}${API_CONFIG.API_PREFIX}`
 
@@ -19,7 +20,7 @@ api.interceptors.request.use(
     console.log(`发起请求: ${config.method?.toUpperCase()} ${config.url}`)
 
     // 添加 JWT token 到请求头
-    const token = localStorage.getItem('auth_token')
+    const token = getStorage(StorageKeys.AUTH_TOKEN)
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

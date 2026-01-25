@@ -1,7 +1,10 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
+import { useEventListener } from './useEventListener'
 
 /**
  * 滚动管理的组合函数
+ * 
+ * 控制筛选条基于滚动方向和距离的显示/隐藏
  */
 export function useScrollManagement() {
   const isFilterHidden = ref(false)
@@ -44,6 +47,14 @@ export function useScrollManagement() {
     lastScrollTop = currentScrollTop
   }
 
+  // 使用 useEventListener 自动管理事件监听和清理
+  useEventListener({
+    eventName: 'scroll',
+    handler: handleScroll,
+    target: window,
+    options: { passive: true }
+  })
+
   return {
     isFilterHidden,
     handleScroll
@@ -60,16 +71,19 @@ export function useMobileDetection() {
     isMobile.value = window.innerWidth <= 768
   }
 
-  onMounted(() => {
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-  })
+  // 初始检查
+  checkMobile()
 
-  onUnmounted(() => {
-    window.removeEventListener('resize', checkMobile)
+  // 使用 useEventListener 管理 resize 事件
+  useEventListener({
+    eventName: 'resize',
+    handler: checkMobile,
+    target: window,
+    options: { passive: true }
   })
 
   return {
     isMobile
   }
 }
+
