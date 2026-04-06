@@ -37,7 +37,7 @@
         :max-columns="6"
         :rtl="false"
         :scroll-container="scrollContainer"
-        v-slot="{ item: photo, index }"
+        v-slot="{ item: photo }"
       >
         <div
           class="masonry-item"
@@ -138,15 +138,13 @@
             </div>
           </div>
         </div>
-        <!-- 在MasonryWall内部放置哨兵元素 -->
-        <div
-          v-if="
-            index === visiblePhotos.length - 1 || visiblePhotos.length === 0
-          "
-          ref="sentinel"
-          class="load-more-sentinel"
-        ></div>
       </MasonryWall>
+      <!-- 哨兵元素 - 放在 MasonryWall 外部，确保能被正确检测 -->
+      <div
+        v-if="visiblePhotos.length > 0"
+        ref="masonrySentinel"
+        class="load-more-sentinel"
+      ></div>
     </div>
 
     <!-- 方形网格布局 -->
@@ -301,6 +299,7 @@ const emit = defineEmits([
 const gridContainer = ref(null);
 let observer = null;
 const sentinel = ref(null);
+const masonrySentinel = ref(null); // 瀑布流布局的哨兵元素
 
 // 使用 Pinia store
 const photoStore = usePhotoStore();
@@ -374,7 +373,7 @@ const getTagChipClass = (tagName) => {
 // 监听 photos，初始化每张图片的加载状态
 watch(
   () => props.photos,
-  (newPhotos) => {
+  async (newPhotos) => {
     const newIds = newPhotos.map((p) => p.id);
     // 添加新的
     newPhotos.forEach((photo) => {
@@ -389,9 +388,9 @@ watch(
       }
     });
 
-    setTimeout(() => {
-      setupIntersectionObserver();
-    }, 600);
+    // 等待 DOM 更新后重新设置 Observer
+    await nextTick();
+    setupIntersectionObserver();
   },
   { immediate: true }
 );
@@ -405,8 +404,11 @@ const handleImageError = (photoId) => {
 
 // 设置 Intersection Observer 监听滚动到底部
 const setupIntersectionObserver = () => {
-  if (!sentinel.value) {
-    console.log("❌ No sentinel element found");
+  // 根据布局类型选择正确的哨兵元素
+  const currentSentinel = props.layout === 'masonry' ? masonrySentinel.value : sentinel.value;
+
+  if (!currentSentinel) {
+    console.log("❌ No sentinel element found for layout:", props.layout);
     return;
   }
   if (observer) observer.disconnect();
@@ -430,13 +432,20 @@ const setupIntersectionObserver = () => {
     }
   );
 
-  // 确保观察的是最新的sentinel元素
-  if (sentinel.value) {
-    observer.observe(sentinel.value);
-  }
+  // 观察当前布局的哨兵元素
+  observer.observe(currentSentinel);
 };
 onMounted(async () => {
   await photoStore.initTagsData();
+
+  // 加载过滤策略
+  loadTagFilterStrategies();
+  // 监听 localStorage 变化，及时更新策略
+  window.addEventListener("storage", (e) => {
+    if (e.key === "tagFilterStrategies") {
+      loadTagFilterStrategies();
+    }
+  });
 
   // 延迟设置Intersection Observer，确保MasonryWall已经渲染完成
   setTimeout(() => {
@@ -455,7 +464,7 @@ onMounted(async () => {
 
     setupIntersectionObserver();
     emit("ready");
-  }, 600);
+  }, 100);
 });
 
 watch(
@@ -587,17 +596,6 @@ const getImageUrl = (photo) => {
 const closeHiddenNotice = () => {
   showHiddenNotice.value = false;
 };
-
-// 组件挂载时加载过滤策略
-onMounted(() => {
-  loadTagFilterStrategies();
-  // 监听 localStorage 变化，及时更新策略
-  window.addEventListener("storage", (e) => {
-    if (e.key === "tagFilterStrategies") {
-      loadTagFilterStrategies();
-    }
-  });
-});
 
 // 监听隐藏图片数量变化，自动显示提示
 watch(hiddenPhotosCount, (newCount) => {

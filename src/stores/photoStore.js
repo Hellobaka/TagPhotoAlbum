@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { photoApi } from '@/api/photoApi'
 import { useNotificationStore } from './notificationStore'
-import UPLOAD_CONFIG from '@/config/upload'
 import { findAndUpdate } from '@/utils/dataHelper'
 
 export const usePhotoStore = defineStore('photos', {
@@ -565,15 +564,8 @@ export const usePhotoStore = defineStore('photos', {
           }
 
           try {
-            // 为每个文件创建独立的超时控制
-            const uploadPromise = photoApi.uploadPhotos(singleFileFormData, fileProgressCallback)
-
-            const result = await Promise.race([
-              uploadPromise,
-              new Promise((_, reject) => {
-                setTimeout(() => reject(new Error(`文件上传超时 (${UPLOAD_CONFIG.TIMEOUT_PER_IMAGE / 1000}秒)`)), UPLOAD_CONFIG.TIMEOUT_PER_IMAGE)
-              })
-            ])
+            // 上传文件，不设置超时，由后端控制连接
+            const result = await photoApi.uploadPhotos(singleFileFormData, fileProgressCallback)
 
             completedFiles++
 
