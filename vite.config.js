@@ -2,6 +2,10 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import { readFileSync } from 'node:fs'
+
+// 读取 package.json 获取版本号
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 export default defineConfig(({ mode }) => ({
   plugins: [vue({
@@ -13,6 +17,9 @@ export default defineConfig(({ mode }) => ({
   }),
     vueDevTools(),
   ],
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
   server: {
     host: '0.0.0.0',
     port: 3000,

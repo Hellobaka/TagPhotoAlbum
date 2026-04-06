@@ -85,6 +85,17 @@
             </div>
           </div>
 
+          <!-- 图片尺寸 (需要后端返回 width 和 height 字段) -->
+          <div class="detail-item" v-if="photo.width && photo.height">
+            <div class="detail-label">
+              <span class="material-symbols-outlined">aspect_ratio</span>
+              <span>图片尺寸</span>
+            </div>
+            <div class="detail-value">
+              {{ photo.width }} × {{ photo.height }} px
+            </div>
+          </div>
+
           <!-- EXIF 信息 -->
           <div class="exif-section" v-if="filteredExifData.length > 0">
             <div class="exif-header">

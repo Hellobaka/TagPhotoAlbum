@@ -106,6 +106,21 @@
       </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span class="footer-version">v{{ appVersion }}</span>
+      <span class="footer-divider">·</span>
+      <a
+        href="https://github.com/Hellobaka/TagPhotoAlbum"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="footer-link"
+      >
+        <span class="material-symbols-outlined footer-icon">open_in_new</span>
+        GitHub
+      </a>
+    </footer>
+
     <!-- 图片详情对话框 -->
     <PhotoDialog
       :selected-photo="selectedPhoto"
@@ -169,6 +184,9 @@ const router = useRouter();
 const route = useRoute();
 const photoStore = usePhotoStore();
 const notificationStore = useNotificationStore();
+
+// 版本号
+const appVersion = __APP_VERSION__;
 
 // 使用组合函数
 const {
@@ -547,6 +565,7 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   background: var(--md-sys-color-surface);
+  padding-bottom: 48px; /* 为 footer 留出空间 */
 }
 
 /* Header 和筛选条容器 */
@@ -743,5 +762,50 @@ onMounted(async () => {
   .masonry-grid {
     column-count: 1;
   }
+}
+
+/* Footer 样式 - 固定在底部 */
+.app-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--md-sys-color-surface);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 12px;
+  z-index: 100;
+}
+
+.footer-version {
+  font-weight: 500;
+}
+
+.footer-divider {
+  opacity: 0.5;
+}
+
+.footer-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--md-sys-color-primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.footer-link:hover {
+  opacity: 0.8;
+}
+
+.footer-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
 }
 </style>
