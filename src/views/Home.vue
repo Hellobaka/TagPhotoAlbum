@@ -96,6 +96,8 @@
           :is-load-more="photoStore.isLoadMore"
           :has-more="photoStore.hasMore"
           :layout="currentLayout"
+          :disable-infinite-scroll="activeTab === 'recommend'"
+          :custom-end-message="activeTab === 'recommend' ? '推荐看完了，点击刷新按钮更换一批吧' : ''"
           @open-photo-detail="openPhotoDetail"
           @load-more="handleLoadMore"
           @tag-click="handleTagClickFromGrid"
@@ -293,7 +295,7 @@ const setActiveTab = async (tabId) => {
   try {
     switch (tabId) {
       case "recommend":
-        await photoStore.getRecommendPhotos([]);
+        await photoStore.refreshRecommendPhotos();
         break;
       case "uncategorized":
         await photoStore.getUncategorizedPhotos();
@@ -320,7 +322,7 @@ const handleRefresh = async () => {
 
     switch (activeTab.value) {
       case "recommend":
-        await photoStore.getRecommendPhotos([]);
+        await photoStore.refreshRecommendPhotos();
         photoCount = photoStore.recommendPhotos.length;
         break;
       case "uncategorized":

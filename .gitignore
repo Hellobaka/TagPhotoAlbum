@@ -1,4 +1,3 @@
-```
 # Dependencies
 node_modules/
 
@@ -48,4 +47,6 @@ Thumbs.db
 .pytest_cache/
 .gradle/
 target/
-```
+
+# Local build scripts with secrets
+build_production.bat

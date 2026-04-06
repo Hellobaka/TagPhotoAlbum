@@ -139,9 +139,9 @@
           </div>
         </div>
       </MasonryWall>
-      <!-- 哨兵元素 - 放在 MasonryWall 外部，确保能被正确检测 -->
+      <!-- 哨兵元素 - 放在 MasonryWall 外部，确保能被正确检测（禁用懒加载时不显示） -->
       <div
-        v-if="visiblePhotos.length > 0"
+        v-if="!disableInfiniteScroll && visiblePhotos.length > 0"
         ref="masonrySentinel"
         class="load-more-sentinel"
       ></div>
@@ -210,9 +210,9 @@
           </div>
         </div>
       </div>
-      <!-- 哨兵元素 - 放在网格容器外部，确保能被正确检测 -->
+      <!-- 哨兵元素 - 放在网格容器外部，确保能被正确检测（禁用懒加载时不显示） -->
       <div
-        v-if="photos.length > 0"
+        v-if="!disableInfiniteScroll && photos.length > 0"
         ref="sentinel"
         class="load-more-sentinel"
       ></div>
@@ -234,8 +234,18 @@
       </div>
     </div>
 
-    <!-- 没有更多数据提示 -->
-    <div v-if="!hasMore && photos.length > 0" class="no-more-state">
+    <!-- 禁用懒加载时的自定义提示 -->
+    <div v-if="disableInfiniteScroll && !isLoading && photos.length > 0" class="no-more-state">
+      <div class="no-more-content">
+        <md-icon class="no-more-icon">recommend</md-icon>
+        <p class="md-typescale-body-medium no-more-text">
+          {{ customEndMessage || '推荐看完了，点击刷新按钮更换一批吧' }}
+        </p>
+      </div>
+    </div>
+
+    <!-- 没有更多数据提示（懒加载模式） -->
+    <div v-if="!disableInfiniteScroll && !hasMore && photos.length > 0" class="no-more-state">
       <div class="no-more-content">
         <md-icon class="no-more-icon">check_circle</md-icon>
         <p class="md-typescale-body-medium no-more-text">
@@ -286,6 +296,16 @@ const props = defineProps({
   layout: {
     type: String,
     default: "masonry",
+  },
+  // 禁用懒加载（不显示哨兵元素，不触发 load-more）
+  disableInfiniteScroll: {
+    type: Boolean,
+    default: false,
+  },
+  // 自定义底部提示文字（当 disableInfiniteScroll 为 true 时显示）
+  customEndMessage: {
+    type: String,
+    default: "",
   },
 });
 

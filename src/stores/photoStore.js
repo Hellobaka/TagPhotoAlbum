@@ -428,25 +428,32 @@ export const usePhotoStore = defineStore('photos', {
       )
     },
 
-    // 获取推荐照片
+    // 获取推荐照片（不支持懒加载，每次刷新替换）
     async getRecommendPhotos(excludeIds = null) {
-      if (this.isLoadMore || !this.hasMore) return
+      if (this.isLoadMore) return
 
       return this._apiCall(
         async () => {
-          this.hasMore = true
           const idsToExclude = excludeIds !== null ? excludeIds : this.lastRecommendPhotoIds
           const response = await photoApi.getRecommendPhotos(idsToExclude)
 
           this.recommendPhotos = response.data || []
           this.lastRecommendPhotoIds = this.recommendPhotos.map(photo => photo.id)
-          this.hasMore = this.recommendPhotos.length >= 20
+          // 推荐页禁用懒加载，hasMore 始终为 false
+          this.hasMore = false
 
           return this.recommendPhotos
         },
         'recommend',
         '加载推荐照片失败'
       )
+    },
+
+    // 刷新推荐照片
+    async refreshRecommendPhotos() {
+      this.lastRecommendPhotoIds = []
+      this.hasMore = false
+      return this.getRecommendPhotos()
     },
 
     // 获取未分类照片（第一页）

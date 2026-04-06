@@ -249,7 +249,7 @@ const uploadFiles = async (files) => {
     const activeTab = photoStore.activeTab
     switch (activeTab) {
       case 'recommend':
-        await photoStore.getRecommendPhotos()
+        await photoStore.refreshRecommendPhotos()
         break
       case 'uncategorized':
         await photoStore.getUncategorizedPhotos()
