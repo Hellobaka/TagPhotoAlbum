@@ -1768,8 +1768,8 @@ const downloadImage = async () => {
 }
 
 /* 响应式设计 */
-/* 平板和小屏幕：改为竖向堆叠 */
-@media (max-width: 1200px) {
+/* 小屏幕：改为竖向堆叠 */
+@media (max-width: 900px) {
   .photo-editor-container {
     flex-direction: column;
     gap: 16px;

@@ -1133,7 +1133,7 @@ watch(hiddenPhotosCount, (newCount) => {
 }
 
 /* 响应式设计 - 方形网格布局 */
-@media (max-width: 1200px) {
+@media (max-width: 900px) {
   .grid-items {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
